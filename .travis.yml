@@ -4,6 +4,7 @@ script:
   - ./autogen.sh
   - ./configure --prefix=$PWD/_inst
   - make
+  - cat config.h
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make test; fi
 
 matrix:
@@ -38,6 +39,14 @@ matrix:
   allow_failures:
   - compiler: clang
     env: BUILD_TYPE=lsan
+  - compiler: gcc
+    env: BUILD_TYPE=cmake
+    script:
+      - mkdir build
+      - cd build
+      - cmake -DBUILD_EXPIRIMENTAL ..
+      - make -j 4
+      - echo "tests not yet attempted"
 
 before_script:
   - |
@@ -68,6 +77,7 @@ addons:
   apt:
     packages:
     - clang
+    - cmake
     - libcap-ng-dev
     - libcap-ng-utils
     - liblzo2-dev
