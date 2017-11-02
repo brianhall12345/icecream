@@ -1,12 +1,10 @@
-language: cpp
-
 script:
   - ./autogen.sh
   - ./configure --prefix=$PWD/_inst
   - make
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make test; fi
 
-env: # important!
+env: # important, even though empty!
 
 matrix:
   include:
