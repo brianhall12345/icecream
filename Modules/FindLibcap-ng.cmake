@@ -56,7 +56,7 @@ set_package_properties(Libcapng PROPERTIES
    DESCRIPTION "Library for getting and setting POSIX capabilities")
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Libcapng REQUIRED_VARS Libcapng_LIBRARY Libcapng_INCLUDE_DIRS)
+find_package_handle_standard_args(Libcap-ng REQUIRED_VARS Libcap-ng_LIBRARY Libcap-ng_INCLUDE_DIRS)
 
 IF(Libcap-ng_FOUND)
   IF(NOT TARGET Libcap-ng::Libcap-ng)
