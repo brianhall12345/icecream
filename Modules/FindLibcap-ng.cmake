@@ -51,7 +51,7 @@ find_library(Libcap-ng_LIBRARY NAMES cap-ng)
 find_path(Libcap-ng_INCLUDE_DIRS cap-ng.h)
 
 include(FeatureSummary)
-set_package_properties(Libcapng PROPERTIES
+set_package_properties(Libcap-ng PROPERTIES
    URL "https://people.redhat.com/sgrubb/libcap-ng/"
    DESCRIPTION "Library for getting and setting POSIX capabilities")
 

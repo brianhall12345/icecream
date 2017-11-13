@@ -48,3 +48,8 @@ target_include_directories(services PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include/>  # <prefix>/include
 )
+
+install(TARGETS services
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+)

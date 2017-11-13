@@ -27,3 +27,6 @@ add_executable(icecc-scheduler
 target_link_libraries(icecc-scheduler
   services
 )
+
+install(TARGETS icecc-scheduler 
+        RUNTIME DESTINATION sbin)

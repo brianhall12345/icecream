@@ -39,3 +39,7 @@ if(Libcap-ng_FOUND)
   target_link_libraries(iceccd
     Libcap-ng::Libcap-ng)
 endif()
+
+install(TARGETS iceccd 
+        RUNTIME DESTINATION sbin
+)

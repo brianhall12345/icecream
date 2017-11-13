@@ -17,3 +17,7 @@
 add_executable(compilerwrapper
     compilerwrapper.cpp
     )
+    
+install(TARGETS compilerwrapper
+        RUNTIME DESTINATION lib/icecc
+)

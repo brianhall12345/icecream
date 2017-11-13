@@ -45,3 +45,10 @@ target_compile_definitions(icecc
 target_link_libraries(icecc
     services
 )
+
+install(TARGETS icecc 
+        RUNTIME DESTINATION bin
+)
+
+include(${CMAKE_SOURCE_DIR}/Modules/install_symlink.cmake)
+install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc ${CMAKE_INSTALL_PREFIX}/bin/icerun)
