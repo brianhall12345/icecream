@@ -33,6 +33,7 @@ endif()
 find_package(Libcap-ng)
 find_package(LZO REQUIRED)
 find_package(TAR REQUIRED)
+find_package(DocbookToMan)
 
 configure_file(cmake-config.h.in ${PROJECT_BINARY_DIR}/config.h @ONLY)
 
@@ -41,8 +42,10 @@ include_directories(${PROJECT_BINARY_DIR})
 add_subdirectory(client)
 add_subdirectory(compilerwrapper)
 add_subdirectory(daemon)
+add_subdirectory(doc)
 add_subdirectory(scheduler)
 add_subdirectory(services)
+add_subdirectory(suse)
 
 if(NOT DEFINED BUILD_EXPIRIMENTAL)
     message(SEND_ERROR "Cmake build is experimental and should not be used")

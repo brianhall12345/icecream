@@ -14,49 +14,20 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-add_library(services STATIC
-  comm.cpp
-  comm.h
-  exitcode.cpp
-  exitcode.h
-  gcc.cpp
-#  getifaddrs.cpp
-#  getifaddrs.h
-  job.cpp
-  job.h
-  logging.cpp
-  logging.h
-  platform.cpp
-  platform.h
-  tempfile.c
-  tempfile.h
-  util.h)
-
-
-target_link_libraries(services
-    PRIVATE
-        LZO::lzo
-        dl)
-        
-if(Libcap-ng_FOUND)
-  target_link_libraries(services
-    PRIVATE
-    Libcap-ng::Libcap-ng)
+if (DOCBOOK2MAN_FOUND)
+    message("Generating man pages")
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/icecc.1 
+                       COMMAND ${DOCBOOK2MAN_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/man-icecc.1.xml
+                       MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/man-icecc.1.xml
+    )
+    
+    add_custom_target(man ALL
+                      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/icecc.1 
+    )
+    
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/icecc.1
+            DESTINATION share/man/man1
+    )
+else()
+    message("docbook-to-man executable not found, man pages will not be generated")
 endif()
-
-target_include_directories(services PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-  $<INSTALL_INTERFACE:include/>  # <prefix>/include
-)
-
-install(TARGETS services
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-)
-
-
-install(FILES comm.h
-              job.h
-              logging.h
-        DESTINATION include/icecc
-)
