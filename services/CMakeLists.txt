@@ -15,27 +15,33 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 add_library(services STATIC
-  comm.cpp
-  comm.h
-  exitcode.cpp
-  exitcode.h
-  gcc.cpp
-#  getifaddrs.cpp
-#  getifaddrs.h
   job.cpp
-  job.h
-  logging.cpp
+  job.h 
+  comm.cpp 
+  comm.h
+  exitcode.cpp 
+  exitcode.h
+  getifaddrs.cpp 
+  getifaddrs.h
+  logging.cpp 
   logging.h
-  platform.cpp
-  platform.h
-  tempfile.c
+  ncpus.c 
+  ncpus.h
+  pipes.cpp 
+  pipes.h
+  tempfile.c 
   tempfile.h
+  platform.cpp 
+  platform.h
+  gcc.cpp
+  util.cpp
   util.h)
 
 
 target_link_libraries(services
     PRIVATE
         LZO::lzo
+        zstd
         dl)
         
 if(Libcap-ng_FOUND)

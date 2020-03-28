@@ -24,8 +24,10 @@ add_library(md5 OBJECT
     md5.c
     md5.h
 )
-    
+
 add_executable(icecc
+    argv.c
+    argv.h
     arg.cpp
     client.h
     cpp.cpp

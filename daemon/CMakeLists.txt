@@ -22,8 +22,9 @@ add_executable(iceccd
   load.cpp
   load.h
   main.cpp
-  ncpus.c
-  ncpus.h
+# these files live in the services library
+#  ncpus.c
+#  ncpus.h
   serve.cpp
   serve.h
   workit.cpp
@@ -33,6 +34,7 @@ add_executable(iceccd
 
 target_link_libraries(iceccd
   services
+  archive
 )
 
 if(Libcap-ng_FOUND)
