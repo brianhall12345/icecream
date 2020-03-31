@@ -15,19 +15,18 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 if (DOCBOOK2MAN_FOUND)
-    message("Generating man pages")
-    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/icecc.1 
-                       COMMAND ${DOCBOOK2MAN_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/man-icecc.1.xml
-                       MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/man-icecc.1.xml
+    include(${CMAKE_SOURCE_DIR}/Modules/DocbookToManUtils.cmake)
+
+    set(man_xmls 
+      man-icecc-create-env.1.xml
+      man-icecc-scheduler.1.xml
+      man-icecc.1.xml
+      man-iceccd.1.xml
+      man-icerun.1.xml
+      man-icecream.7.xml      
     )
-    
-    add_custom_target(man ALL
-                      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/icecc.1 
-    )
-    
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/icecc.1
-            DESTINATION share/man/man1
-    )
+    add_docs(${man_xmls})
+
 else()
     message("docbook-to-man executable not found, man pages will not be generated")
 endif()
