@@ -33,7 +33,7 @@ add_executable(iceccd
 )
 
 target_link_libraries(iceccd
-  services
+  icecc
   archive
 )
 

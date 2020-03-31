@@ -25,7 +25,7 @@ add_executable(icecc-scheduler
     jobstat.cpp)
 
 target_link_libraries(icecc-scheduler
-  services
+  icecc
 )
 
 install(TARGETS icecc-scheduler 

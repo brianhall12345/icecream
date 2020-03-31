@@ -14,7 +14,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-add_library(services STATIC
+add_library(icecc STATIC
   job.cpp
   job.h 
   comm.cpp 
@@ -38,24 +38,24 @@ add_library(services STATIC
   util.h)
 
 
-target_link_libraries(services
+target_link_libraries(icecc
     PRIVATE
         LZO::lzo
         zstd
         dl)
         
 if(Libcap-ng_FOUND)
-  target_link_libraries(services
+  target_link_libraries(icecc
     PRIVATE
     Libcap-ng::Libcap-ng)
 endif()
 
-target_include_directories(services PUBLIC
+target_include_directories(icecc PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:include/>  # <prefix>/include
 )
 
-install(TARGETS services
+install(TARGETS icecc
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
 )
