@@ -1,4 +1,4 @@
-#Copyright 2017 Winfried Dobbe as part of the icecream program
+#Copyright 2020 Brian Hall as part of the icecream program
 #
 #Redistribution and use in source and binary forms, with or without modification, 
 #are permitted provided that the following conditions are met:

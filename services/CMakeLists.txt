@@ -14,6 +14,9 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+include(${CMAKE_SOURCE_DIR}/Modules/CMakeMacroLibtoolFile.cmake)
+
+
 add_library(icecc STATIC
   job.cpp
   job.h 
@@ -55,11 +58,17 @@ target_include_directories(icecc PUBLIC
   $<INSTALL_INTERFACE:include/>  # <prefix>/include
 )
 
+libtool_create_control_file(icecc)
+
 install(TARGETS icecc
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
 )
 
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libicecc.la
+        DESTINATION lib
+        PERMISSIONS WORLD_EXECUTE OWNER_EXECUTE GROUP_EXECUTE WORLD_READ OWNER_READ GROUP_READ OWNER_WRITE
+)
 
 install(FILES comm.h
               job.h
