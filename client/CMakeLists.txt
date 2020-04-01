@@ -56,3 +56,9 @@ install(TARGETS icecc-bin
 
 include(${CMAKE_SOURCE_DIR}/Modules/install_symlink.cmake)
 install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc ${CMAKE_INSTALL_PREFIX}/bin/icerun)
+
+set(compilers g++ gcc c++ cc clang clang++) #todo, detect clang wrappers?
+install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec/icecc/bin)
+foreach(link IN LISTS compilers) 
+    install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc ${CMAKE_INSTALL_PREFIX}/libexec/icecc/bin/${link})
+endforeach()
