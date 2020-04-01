@@ -51,6 +51,7 @@ if(Libcap-ng_FOUND)
   target_link_libraries(icecc
     PRIVATE
     Libcap-ng::Libcap-ng)
+  set(CAPNG_LDADD "-lcap-ng")
 endif()
 
 target_include_directories(icecc PUBLIC
@@ -59,6 +60,18 @@ target_include_directories(icecc PUBLIC
 )
 
 libtool_create_control_file(icecc)
+
+
+set(prefix "${CMAKE_INSTALL_PREFIX}")
+set(exec_prefix "\$\{prefix\}")
+set(libdir "\$\{exec_prefix\}/lib")
+set(includedir "\$\{prefix\}/include")
+configure_file(icecc.pc.in icecc.pc @ONLY)
+unset(prefix)
+unset(exec_prefix)
+unset(libdir)
+unset(includedir)
+unset(CAPNG_LDADD)
 
 install(TARGETS icecc
         ARCHIVE DESTINATION lib
@@ -75,3 +88,6 @@ install(FILES comm.h
               logging.h
         DESTINATION include/icecc
 )
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/icecc.pc
+        DESTINATION lib/pkgconfig)
