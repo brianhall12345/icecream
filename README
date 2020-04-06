@@ -38,7 +38,7 @@ not be accepted.
 cd icecream
 mkdir build
 cd build
-cmake -DCMAKE_INSTALL_PREFIX=/opt/icecream -DBUILD_EXPIRIMENTAL=true ..
+cmake -DCMAKE_INSTALL_PREFIX=/opt/icecream -DBUILD_EXPERIMENTAL=true ..
 make -j 4
 
 How to contribute
