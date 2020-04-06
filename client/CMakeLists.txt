@@ -54,8 +54,21 @@ install(TARGETS icecc-bin
         RUNTIME DESTINATION bin
 )
 
+set(PKGLIBEXECDIR "${CMAKE_INSTALL_PREFIX}/libexec/icecc")
+configure_file(icecc-create-env.in icecc-create-env @ONLY)
+configure_file(icecc-test-env.in icecc-test-env @ONLY)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/icecc-create-env
+    ${CMAKE_CURRENT_BINARY_DIR}/icecc-test-env
+    DESTINATION bin
+    PERMISSIONS WORLD_EXECUTE OWNER_EXECUTE GROUP_EXECUTE WORLD_READ OWNER_READ GROUP_READ OWNER_WRITE
+)
+
 include(${CMAKE_SOURCE_DIR}/Modules/install_symlink.cmake)
 install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc ${CMAKE_INSTALL_PREFIX}/bin/icerun)
+
+install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc-create-env ${CMAKE_INSTALL_PREFIX}/libexec/icecc/icecc-create-env)
 
 set(compilers g++ gcc c++ cc clang clang++) #todo, detect clang wrappers?
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec/icecc/bin)

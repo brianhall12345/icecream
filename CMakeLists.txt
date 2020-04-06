@@ -14,7 +14,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.10)
 
 project(icecc LANGUAGES CXX C)
 
@@ -53,7 +53,6 @@ else()
     message("The following things are known not to be finsihed/working in this build")
     message("Using this build implies you are working to fix something in this list")
     message("    Create cmake install configuration")
-    message("    icecc-create-env")
     message("    build on OSX")
     message("    tests")
     message("    building downstream projects (icemon)")

@@ -1,6 +1,6 @@
  
 function(install_symlink filepath linkpath)
-    install(CODE "message(\"execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${filepath} ${linkpath})\")")
+    install(CODE "message(\"Creating symlink ${filepath}->${linkpath})\")")
     install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${filepath} ${linkpath})")
 endfunction()
 
