@@ -32,8 +32,24 @@ else()
 set(icecream_version "${icecream_version_major}.${icecream_version_minor}.${icecream_version_micro}")
 endif()
 
+set(PACKAGE "icecc")
 set(VERSION "${icecream_version}")
-message("Version is ${VERSION} and icecream_version is ${icecream_version}")
+set(PACKAGE_BUGREPORT "")
+set(TARNAME "")
+set(PACKAGE_URL "")
+set(PACKAGE_NAME "${PACKAGE}")
+set(PACKAGE_VERSION "${VERSION}")
+if(VERSION)
+    set(PACKAGE_STRING "${PACKAGE} ${VERSION}")
+else()
+    set(PACKAGE_STRING "${PACKAGE}")
+endif()
+
+if(NOT TARNAME)
+    string(REGEX REPLACE "[^a-zA-Z0-9_]" "-" TARNAME "${PACKAGE}")
+endif()    
+set(PACKAGE_TARNAME "${TARNAME}")
+
 # =============
 # CMake init
 # =============
@@ -87,6 +103,13 @@ if (CMAKE_BUILD_TYPE EQUAL "DEBUG")
 else()
     set(CFLAGS "${CFLAGS} -DNDEBUG")
     set(CXXFLAGS "${CXXFLAGS} -DNDEBUG")
+endif()
+
+# Detect inline keyword
+if (MSVC)
+    set (inline __inline)
+elseif(CMAKE_COMPILER_IS_GNUC)
+    set (inline __inline__)
 endif()
 
 # ===========================
