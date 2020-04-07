@@ -93,6 +93,9 @@ endif()
 # Find required base packages
 # ===========================
 find_package(Libcap-ng)
+if (Libcap-ng_FOUND)
+    set(HAVE_LIBCAP_NG 1)
+endif()
 find_package(LZO REQUIRED)
 find_package(TAR REQUIRED)
 find_package(Zstd REQUIRED)
@@ -109,30 +112,66 @@ find_package(DocbookToMan)
 ### Checks for header files
 
 # Some of these are needed by popt (or other libraries included in the future).
-INCLUDE(CheckIncludeFiles)
+include(${CMAKE_SOURCE_DIR}/Modules/CheckSTDC.cmake)
+include(CheckIncludeFiles)
+CHECK_INCLUDE_FILES("memory.h" HAVE_MEMORY_H)
+CHECK_INCLUDE_FILES("sys/stat.h" HAVE_SYS_STAT_H)
+CHECK_INCLUDE_FILES("unistd.h" HAVE_UNISTD_H)
+CHECK_INCLUDE_FILES("stdint.h" HAVE_STDINT_H)
+CHECK_INCLUDE_FILES("stdlib.h" HAVE_STDLIB_H)
+CHECK_INCLUDE_FILES("strings.h" HAVE_STRINGS_H)
+CHECK_INCLUDE_FILES("string.h" HAVE_STRING_H)
+CHECK_INCLUDE_FILES("inttypes.h" HAVE_INTTYPES_H)
 CHECK_INCLUDE_FILES("sys/signal.h" HAVE_SYS_SIGNAL_H)
 CHECK_INCLUDE_FILES("ifaddrs.h" HAVE_IFADDRS_H)
-CHECK_INCLUDE_FILES("sys/signal.h;ifaddrs.h;kinfo.h;sys/param.h;devstat.h" HAVE_DEVSTAT_H)
-CHECK_INCLUDE_FILES("sys/socketvar.h;sys/vfs.h" HAVE_SYS_VFS_H)
+CHECK_INCLUDE_FILES("kinfo.h" HAVE_KINFO_H)
+CHECK_INCLUDE_FILES("sys/param.h" HAVE_SYS_PARAM_H)
+CHECK_INCLUDE_FILES("devstat.h" HAVE_DEVSTAT_H)
+CHECK_INCLUDE_FILES("sys/socketvar.h" HAVE_SYS_SOCKETVAR_H)
+CHECK_INCLUDE_FILES("sys/vfs.h" HAVE_SYS_VFS_H)
 CHECK_INCLUDE_FILES("mach/host_info.h" HAVE_MACH_HOST_INFO_H)
-CHECK_INCLUDE_FILES("sys/types.h;arpa/nameser.h" HAVE_ARPA_NAMESER_H)
-CHECK_INCLUDE_FILES("netinet/in.h;resolv.h" HAVE_RESOLV_H)
-CHECK_INCLUDE_FILES("netinet/tcp.h;netinet/tcp_var.h" HAVE_NETINET_TCP_VAR_H)
+CHECK_INCLUDE_FILES("sys/types.h" HAVE_SYS_TYPES_H)
+CHECK_INCLUDE_FILES("arpa/nameser.h" HAVE_ARPA_NAMESER_H)
+CHECK_INCLUDE_FILES("netinet/in.h" HAVE_INET_IN_H)
+CHECK_INCLUDE_FILES("resolv.h" HAVE_RESOLV_H)
+CHECK_INCLUDE_FILES("netinet/tcp.h" HAVE_NETINET_TCP_H)
+CHECK_INCLUDE_FILES("netinet/tcp_var.h" HAVE_NETINET_TCP_VAR_H)
 CHECK_INCLUDE_FILES("sys/user.h" HAVE_SYS_USER_H)
+CHECK_INCLUDE_FILES("dlfcn.h" HAVE_DLFCN_H)
+CHECK_INCLUDE_FILES("archive_entry.h" HAVE_ARCHIVE_ENTRY_H)
+CHECK_INCLUDE_FILES("archive.h" HAVE_ARCHIVE_H_) #trailing underscore is on purpose, the code expects this.
+
 
 ######################################################################
 ### Checks for types
 include(CheckTypeSize)
-set(CMAKE_EXTRA_INCLUDE_FILES "sys/types.h;sys/socket.h;netinet/in.h"
-)
-CHECK_TYPE_SIZE("struct sa_family_t" SA_FAMILY_T_SIZE)
-CHECK_TYPE_SIZE("struct socklen_t" SOCKLEN_T_SIZE)
-CHECK_TYPE_SIZE("struct in_port_t" IN_PORT_T_SIZE)
-CHECK_TYPE_SIZE("struct in_addr_t" IN_ADDR_T_SIZE)
-set(CMAKE_EXTRA_INCLUDE_FILES)
+set(SYMBOL_INCLUDES "sys/types.h;sys/socket.h;netinet/in.h")
+if (HAVE_ARPA_NAMESER_H)
+    list(APPEND SYMBOL_INCLUDES "arpa/nameser.h")
+endif()
+set(PREV_INCLUDES  ${CMAKE_EXTRA_INCLUDE_FILES})
+set(CMAKE_EXTRA_INCLUDE_FILES "sys/types.h;sys/socket.h;netinet/in.h")
+CHECK_TYPE_SIZE(sa_family_t SA_FAMILY_T)
+if (HAVE_SA_FAMILY_T)
+    set(HAVE_SA_FAMILY_T 1) # preserve format consistency
+endif()
+CHECK_TYPE_SIZE(socklen_t SOCKLEN_T)
+if (HAVE_SOCKLEN_T)
+    set(HAVE_SOCKLEN_T 1) # preserve format consistency
+endif()
+CHECK_TYPE_SIZE(in_port_t IN_PORT_T)
+if (HAVE_IN_PORT_T)
+    set(HAVE_IN_PORT_T 1) # preserve format consistency
+endif()
+CHECK_TYPE_SIZE(in_addr_t IN_ADDR_T)
+if (HAVE_IN_ADDR_T)
+    set(HAVE_IN_ADDR_T 1) # preserve format consistency
+endif()
 
+set(CMAKE_EXTRA_INCLUDE_FILES "net/if.h")
 include(${CMAKE_SOURCE_DIR}/Modules/CheckStructMember.cmake)
 CHECK_STRUCT_MEMBER("ifreq" "ifr_dstaddr" "net/if.h" HAVE_IFR_DSTADDR)
+set(CMAKE_EXTRA_INCLUDE_FILES ${PREV_INCLUDES})
 
 ########################################################################
 ### Checks for libraries.
@@ -164,8 +203,30 @@ CHECK_SYMBOL_EXISTS("lockf" "unistd.h" HAVE_LOCKF)
 CHECK_SYMBOL_EXISTS("strsignal" "string.h" HAVE_STRSIGNAL)
 CHECK_SYMBOL_EXISTS("getloadavg" "stdlib.h" HAVE_GETLOADAVG)
 
-CHECK_SYMBOL_EXISTS("archive_read_support_filter_xz" "archive.h" HAVE_LIBARCHIVE_XZ)
-CHECK_SYMBOL_EXISTS("archive_read_support_filter_zstd" "archive.h" HAVE_LIBARCHIVE_ZSTD)
+include(CheckCSourceCompiles)
+set(PREV_REQ_LIBS ${CMAKE_REQUIRED_LIBRARIES})
+set(CMAKE_REQUIRED_LIBRARIES "archive")
+CHECK_C_SOURCE_COMPILES("
+    #include <archive.h>
+
+    int main(void) {
+        struct archive *a;
+        archive_read_support_filter_xz(a);
+    }
+  "
+  HAVE_LIBARCHIVE_XZ
+  )
+CHECK_C_SOURCE_COMPILES("
+    #include <archive.h>
+
+    int main(void) {
+        struct archive *a;
+        archive_read_support_filter_zstd(a);
+    }
+  "
+  HAVE_LIBARCHIVE_ZSTD
+  )
+set(CMAKE_REQUIRED_LIBRARIES ${PREV_REQ_LIBS})
  
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 if( ${CMAKE_SYSTEM} MATCHES "dragonfly")

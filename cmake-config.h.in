@@ -170,10 +170,15 @@
 #cmakedefine SANITIZER_USED "@SANITIZER_USED@" 
 
 /* Define to 1 if you have the ANSI C header files. */
-#cmakedefine STDC_HEADER "@STDC_HEADER@"
+#cmakedefine STDC_HEADERS @STDC_HEADERS@
 
 /* Version number of package */
 #cmakedefine VERSION "@VERSION@"
 
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+/* #undef inline */
+#endif
 
 #define TAR "@TAR_PROGRAM@"
