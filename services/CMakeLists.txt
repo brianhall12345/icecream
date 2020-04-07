@@ -44,7 +44,7 @@ add_library(icecc STATIC
 target_link_libraries(icecc
     PRIVATE
         LZO::lzo
-        zstd
+        ${ZSTD_LIBRARY}
         dl)
         
 if(Libcap-ng_FOUND)

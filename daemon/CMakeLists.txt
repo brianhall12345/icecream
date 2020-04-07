@@ -34,7 +34,7 @@ add_executable(iceccd
 
 target_link_libraries(iceccd
   icecc
-  archive
+  LibArchive::LibArchive
 )
 
 if(Libcap-ng_FOUND)

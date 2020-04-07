@@ -116,8 +116,11 @@ endif()
 # Find required base packages
 # ===========================
 find_package(Libcap-ng)
-if (Libcap-ng_FOUND)
-    set(HAVE_LIBCAP_NG 1)
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Libcap-ng)
+    if (Libcap-ng_FOUND)
+        set(HAVE_LIBCAP_NG 1)
+    endif()
 endif()
 find_package(LZO REQUIRED)
 find_package(TAR REQUIRED)
