@@ -1,4 +1,4 @@
-# Copyright (c) 2020, Alexander Neundorf as part of the icecream program
+# Copyright (c) Facebook, Inc. and its affiliates.
 #
 #Redistribution and use in source and binary forms, with or without modification, 
 #are permitted provided that the following conditions are met:
@@ -25,25 +25,26 @@
 #(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
 #SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#
+# - Try to find Facebook zstd library
+# This will define
+# ZSTD_FOUND
+# ZSTD_INCLUDE_DIR
+# ZSTD_LIBRARY
+#
 
-INCLUDE(CheckCSourceCompiles)
+find_path(ZSTD_INCLUDE_DIR NAMES zstd.h)
 
-MACRO (CHECK_STRUCT_MEMBER _STRUCT _MEMBER _HEADER _RESULT)
-   SET(_INCLUDE_FILES)
-   FOREACH (it ${_HEADER})
-      SET(_INCLUDE_FILES "${_INCLUDE_FILES}#include <${it}>\n")
-   ENDFOREACH (it)
+find_library(ZSTD_LIBRARY_DEBUG NAMES zstdd zstd_staticd)
+find_library(ZSTD_LIBRARY_RELEASE NAMES zstd zstd_static)
 
-   SET(_CHECK_STRUCT_MEMBER_SOURCE_CODE "
-${_INCLUDE_FILES}
-int main()
-{
-   static ${_STRUCT} tmp;
-   if (sizeof(tmp.${_MEMBER}))
-      return 0;
-  return 0;
-}
-")
-   CHECK_C_SOURCE_COMPILES("${_CHECK_STRUCT_MEMBER_SOURCE_CODE}" ${_RESULT})
+include(SelectLibraryConfigurations)
+SELECT_LIBRARY_CONFIGURATIONS(ZSTD)
 
-ENDMACRO (CHECK_STRUCT_MEMBER)
+include(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(
+    ZSTD DEFAULT_MSG
+    ZSTD_LIBRARY ZSTD_INCLUDE_DIR
+)
+
+mark_as_advanced(ZSTD_INCLUDE_DIR ZSTD_LIBRARY_DEBUG ZSTD_LIBRARY_RELEASE)

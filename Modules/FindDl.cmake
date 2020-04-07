@@ -1,4 +1,4 @@
-# Copyright (c) 2020, Alexander Neundorf as part of the icecream program
+#  Copyright (c) 2020 libbitcoin developers
 #
 #Redistribution and use in source and binary forms, with or without modification, 
 #are permitted provided that the following conditions are met:
@@ -25,25 +25,47 @@
 #(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
 #SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+###############################################################################
+# Finddl
+#
+# Use this module by invoking find_package with the form::
+#
+#   find_package( dl
+#     [REQUIRED]             # Fail with error if dl is not found
+#   )
+#
+#   Defines the following for use:
+#
+#   dl_FOUND        - True if headers and requested libraries were found
+#   dl_LIBRARIES    - dl libraries to be linked
+#   dl_LIBS         - dl libraries to be linked
+#
 
-INCLUDE(CheckCSourceCompiles)
+if (DEFINED dl_FIND_VERSION)
+    message( SEND_ERROR "Library 'dl' unable to process specified version: ${dl_FIND_VERSION}" )
+endif()
 
-MACRO (CHECK_STRUCT_MEMBER _STRUCT _MEMBER _HEADER _RESULT)
-   SET(_INCLUDE_FILES)
-   FOREACH (it ${_HEADER})
-      SET(_INCLUDE_FILES "${_INCLUDE_FILES}#include <${it}>\n")
-   ENDFOREACH (it)
+if (MSVC)
+    message( STATUS "MSVC environment detection for 'dl' not currently supported." )
+    set( dl_FOUND false )
+else ()
+    # required
+    if ( dl_FIND_REQUIRED )
+        set( _dl_REQUIRED "REQUIRED" )
+    endif()
 
-   SET(_CHECK_STRUCT_MEMBER_SOURCE_CODE "
-${_INCLUDE_FILES}
-int main()
-{
-   static ${_STRUCT} tmp;
-   if (sizeof(tmp.${_MEMBER}))
-      return 0;
-  return 0;
-}
-")
-   CHECK_C_SOURCE_COMPILES("${_CHECK_STRUCT_MEMBER_SOURCE_CODE}" ${_RESULT})
+    find_library(dl_LIBRARIES dl)
 
-ENDMACRO (CHECK_STRUCT_MEMBER)
+    if (dl_LIBRARIES-NOTFOUND)
+        set( dl_FOUND false )
+    else ()
+        set( dl_FOUND true )
+        set( dl_LIBS "-ldl" )
+    endif()
+endif()
+
+if ( dl_FIND_REQUIRED AND ( NOT dl_FOUND ) )
+    message( SEND_ERROR "Library 'dl'  not found." )
+endif()
+
+MARK_AS_ADVANCED(dl_LIBRARIES)

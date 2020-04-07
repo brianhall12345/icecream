@@ -70,7 +70,7 @@ install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc ${CMAKE_INSTALL_PREFIX}/bin/ic
 
 install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc-create-env ${CMAKE_INSTALL_PREFIX}/libexec/icecc/icecc-create-env)
 
-set(compilers g++ gcc c++ cc clang clang++) #todo, detect clang wrappers?
+set(compilers g++ gcc c++ cc ${CLANG_SYMLINK_WRAPPERS})
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/libexec/icecc/bin)
 foreach(link IN LISTS compilers) 
     install_symlink(${CMAKE_INSTALL_PREFIX}/bin/icecc ${CMAKE_INSTALL_PREFIX}/libexec/icecc/bin/${link})
