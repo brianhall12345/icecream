@@ -35,7 +35,7 @@ function(add_docs)
 		string(CONCAT targetfilename "${docfilename}" "." "${man_number}")
 		list(APPEND doc_targets ${targetfilename})
 	    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${targetfilename}
-	                       COMMAND ${DOCBOOK2MAN_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/${xmlfile}
+                               COMMAND ${DocbookToMan_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/${xmlfile}
 	                       MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${xmlfile}
 	    ) 	
 
