@@ -261,18 +261,13 @@ endif()
 ########################################################################
 ### CLang specific configuration
 # AC_CHECK_PROG(CLANG,clang,clang)
-
-# disable-clang-rewrite-includes,
-#         Use by default Clang's -frewrite-includes option.
-if (NOT DEFINED disable-clang-rewrite-includes)
+option(CLANG_REWRITE_INCLUDES "Use by default Clang's -frewrite-includes option." ON)
+if (CLANG_REWRITE_INCLUDES)
     set(HAVE_CLANG_REWRITE_INCLUDES 1)
-endif()
-
-# if test "$enable_clang_rewrite_includes" = "yes"; then
-#     AC_DEFINE(HAVE_CLANG_REWRITE_INCLUDES, 1, [Define to 1 if clang supports -frewrite-includes])
-# elif test "$enable_clang_rewrite_includes" = "no"; then
-#     true  # do not enable
-# else
+elseif(NOT CLANG_REWRITE_INCLUDES)
+    # do not enable
+else()
+    # test to see if clang supports rewrite-includes nd if so enabled.
 #     if test -n "$CLANG"; then
 #         AC_MSG_CHECKING([whether clang -Werror works for unknown options])
 #         $CLANG -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
@@ -291,47 +286,41 @@ endif()
 #             fi
 #         fi
 #     fi
-# fi
-
-# AC_ARG_ENABLE(clang-wrappers,
-#     AS_HELP_STRING([--enable-clang-wrappers],
-#         [Use symlink wrappers for clang/clang++.]))
-if (NOT DEFINED disable-clang-wrappers)
-    set(CLANG_SYMLINK_WRAPPERS "clang clang++")
-else()
-    set(CLANG_SYMLINK_WRAPPERS "")
 endif()
 
-# CLANG_SYMLINK_WRAPPERS=
-# if test "$enable_clang_wrappers" = "yes"; then
-#     CLANG_SYMLINK_WRAPPERS='clang clang++'
-# elif test "$enable_clang_wrappers" = "no"; then
-#     true # do not enable
-# else
+option(CLANG_WRAPPERS "Use symlink wrappers for clang/clang++" ON)
+if (CLANG_WRAPPERS)
+    set(CLANG_SYMLINK_WRAPPERS "clang clang++")
+elseif(NOT CLANG_WRAPPERS)
+    set(CLANG_SYMLINK_WRAPPERS "")
+else()
+#  look for clang and enable wrappers if clang is available
 #     if test -n "$CLANG"; then
 #         CLANG_SYMLINK_WRAPPERS='clang clang++'
-#     fi
-# fi
+#     fi   
+endif()
 
 ########################################################################
 ### GCC specific configuration
-# disable-gcc-color-diagnostics
-#         Assume by default GCC has -fdiagnostics-color=auto option.
-if (NOT DEFINED disable-gcc-color-diagnostics)
+option(GCC_COLOR_DIAGNOSTICS "Assume by default GCC has -fdiagnostics-color=auto option." ON)
+if (GCC_COLOR_DIAGNOSTICS)
+    set(HAVE_GCC_COLOR_DIAGNOSTICS 1)
+elseif(NOT GCC_COLOR_DIAGNOSTICS)
+    # do not enable
+else()
+    # Assume by default GCC has -fdiagnostics-color=auto option.
     set(HAVE_GCC_COLOR_DIAGNOSTICS 1)
 endif()
 
-# disable-gcc-show-caret
-#         Assume by default GCC has -fdiagnostics-show-caret option.
-if (NOT DEFINED disable-gcc-show-caret)
+option(GCC_SHOW_CARET "Assume by default GCC has -fdiagnostics-show-caret option." ON)
+if (GCC_SHOW_CARET)
     set(HAVE_GCC_SHOW_CARET 1)
-endif()
-
-# if test "$enable_gcc_show_caret" = "yes"; then
-#     AC_DEFINE(HAVE_GCC_SHOW_CARET, 1, [Define to 1 if gcc supports -fdiagnostics-show-caret])
-# elif test "$enable_gcc_show_caret" = "no"; then
-#     true  # do not enable
-# else
+elseif(NOT GCC_SHOW_CARET)
+    # do not enable
+else()
+    # Assume by default GCC has -fdiagnostics-show-caret option.
+    set(HAVE_GCC_SHOW_CARET 1)
+#  test if GCC supports show-caret and if so, enable.
 #     AC_CHECK_PROG(GCC_BIN,gcc,gcc)
 #     if test -n "$GCC_BIN"; then
 #         AC_MSG_CHECKING([for gcc -fdiagnostics-show-caret])
@@ -343,19 +332,17 @@ endif()
 #             AC_MSG_RESULT(no)
 #         fi
 #     fi
-# fi
-
-# gcc-fdirectives-only
-#         Use by default GCC's -fdirectives-only option.
-if (NOT DEFINED disable-gcc-fdirectives-only)
-    set(HAVE_GCC_FDIRECTIVES_ONLY 1)
 endif()
 
-# if test "$enable_gcc_fdirectives_only" = "yes"; then
-#     AC_DEFINE(HAVE_GCC_FDIRECTIVES_ONLY, 1, [Define to 1 if gcc supports -fdirectives-only])
-# elif test "$enable_gcc_fdirectives_only" = "no"; then
-#     true  # do not enable
-# else
+option(GCC_FDIRECTIVES_ONLY "Use by default GCC's -fdirectives-only option." ON)
+if (GCC_FDIRECTIVES_ONLY)
+    set(HAVE_GCC_FDIRECTIVES_ONLY 1)
+elseif(NOT GCC_FDIRECTIVES_ONLY)
+    # do not enable
+else()
+    # Assume by default GCC's -fdirectives-only option.
+    set(HAVE_GCC_FDIRECTIVES_ONLY 1)
+#  test if GCC supports fdirectives-only and if so, enable.
 #     AC_CHECK_PROG(GCC_BIN,gcc,gcc)
 #     AC_MSG_CHECKING([whether $GCC_BIN -Werror works for unknown options])
 #     $GCC_BIN -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
@@ -373,8 +360,7 @@ endif()
 #             AC_MSG_RESULT(no)
 #         fi
 #     fi
-# fi
-
+endif()
 
 ########################################################################
 ### Santizing
@@ -411,6 +397,5 @@ add_subdirectory(suse)
 #endif()
 
 # Leftover commands from the configure.ac that I'm not sure we need.
-#AC_C_INLINE # check for existance of inline feature? but we require C++11?
 #AC_DISABLE_SHARED # must static link?
 #AC_ENABLE_STATIC  # must static link?
