@@ -161,7 +161,7 @@
 #define PACKAGE_URL "@PACKAGE_URL@"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "@PACKAGE_VERSION@"
+#define PACKAGE_VERSION "@icecc_VERSION@"
 
 /* Where to place pid files */
 #cmakedefine RUNDIR "@RUNDIR@"
@@ -173,7 +173,7 @@
 #cmakedefine STDC_HEADERS @STDC_HEADERS@
 
 /* Version number of package */
-#define VERSION "@VERSION@"
+#define VERSION "@icecc_VERSION@"
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
