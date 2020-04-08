@@ -184,7 +184,7 @@ endif()
 
 set(CMAKE_EXTRA_INCLUDE_FILES "net/if.h")
 include(${CMAKE_SOURCE_DIR}/Modules/CheckStructMember.cmake)
-CHECK_STRUCT_MEMBER("ifreq" "ifr_dstaddr" "net/if.h" HAVE_IFR_DSTADDR)
+CHECK_STRUCT_MEMBER("struct ifreq" "ifr_dstaddr" "net/if.h" HAVE_IFR_DSTADDR)
 set(CMAKE_EXTRA_INCLUDE_FILES ${PREV_INCLUDES})
 
 ########################################################################
