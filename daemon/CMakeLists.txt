@@ -22,9 +22,6 @@ add_executable(iceccd
   load.cpp
   load.h
   main.cpp
-# these files live in the services library
-#  ncpus.c
-#  ncpus.h
   serve.cpp
   serve.h
   workit.cpp
@@ -34,7 +31,8 @@ add_executable(iceccd
 
 target_link_libraries(iceccd
   icecc
-  LibArchive::LibArchive
+  #LibArchive::LibArchive # -- doesn't seem to work on 3.10 Ubuntu, perhaps this is 3.12 CMake?
+  ${LibArchive_LIBRARIES} # -- found this methodology in another example
   $<$<BOOL:${Libcap-ng_FOUND}>:Libcap-ng::Libcap-ng>
 )
 

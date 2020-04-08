@@ -17,7 +17,8 @@
 # =============
 # CMake init
 # =============
-cmake_minimum_required(VERSION 3.12)
+#cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.10)
 
 # ====================
 # Version informations
@@ -250,105 +251,143 @@ endif()
 ########################################################################
 ### CLang specific configuration
 # AC_CHECK_PROG(CLANG,clang,clang)
-option(CLANG_REWRITE_INCLUDES "Use by default Clang's -frewrite-includes option." ON)
-if (CLANG_REWRITE_INCLUDES)
+find_program(CLANG_EXECUTABLE clang)
+message ("Looking for Clang: ${CLANG_EXECUTABLE}")
+option(CLANG_REWRITE_INCLUDES "Use by default Clang's -frewrite-includes option.")
+option(DISABLE_CLANG_REWRITE_INCLUDES "Disable Clang's use of -frewrite-includes option." OFF)
+if (CLANG_REWRITE_INCLUDES AND NOT DISABLE_CLANG_REWRITE_INCLUDES)
     set(HAVE_CLANG_REWRITE_INCLUDES 1)
-elseif(NOT CLANG_REWRITE_INCLUDES)
+elseif(DISABLE_CLANG_REWRITE_INCLUDES)
     # do not enable
 else()
-    # test to see if clang supports rewrite-includes nd if so enabled.
-#     if test -n "$CLANG"; then
-#         AC_MSG_CHECKING([whether clang -Werror works for unknown options])
-#         $CLANG -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
-#         if test $? -eq 0; then
-#             AC_MSG_RESULT(no)
-#             # can't detect if the option is supported, but that's too old clang anyway
-#         else
-#             AC_MSG_RESULT(yes)
-#             AC_MSG_CHECKING([for clang -E -frewrite-includes])
-#             $CLANG -Werror -E -frewrite-includes - >/dev/null 2>/dev/null
-#             if test $? -eq 0; then
-#                 AC_MSG_RESULT(yes)
-#                 AC_DEFINE(HAVE_CLANG_REWRITE_INCLUDES, 1, [Define to 1 if clang supports -frewrite-includes])
-#             else
-#                 AC_MSG_RESULT(no)
-#             fi
-#         fi
-#     fi
+    if(CLANG_EXECUTABLE)
+        # test to see if clang supports rewrite-includes nd if so enabled.
+        message(STATUS "Checking if clang -Werror works for unknown options.")
+        file(WRITE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c "int main(void) { return 0; }" )
+        execute_process(
+            COMMAND
+            ${CLANG_EXECUTABLE} -Werror -totallybogusoption -E ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c
+            RESULT_VARIABLE 
+            CLANG_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+            )
+        if(CLANG_RESULT EQUAL 0)
+             # can't detect if the option is supported, but that's too old clang anyway
+        else()
+            message(STATUS "Checking for clang -E -frewrite-includes.")
+            execute_process(
+                COMMAND
+                ${CLANG_EXECUTABLE} -Werror -E -frewrite-includes ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c
+                RESULT_VARIABLE 
+                CLANG_RESULT
+                OUTPUT_QUIET
+                ERROR_QUIET
+            )
+            if(CLANG_RESULT EQUAL 0)
+                set(HAVE_CLANG_REWRITE_INCLUDES 1)
+            else()
+                # not supported, do not enable
+            endif()
+        endif()
+        file(REMOVE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c)
+    endif()
 endif()
 
-option(CLANG_WRAPPERS "Use symlink wrappers for clang/clang++" ON)
-if (CLANG_WRAPPERS)
+option(CLANG_WRAPPERS "Use symlink wrappers for clang/clang++")
+option(DISABLE_CLANG_WRAPPERS "Do not use symlink wrappers for clang/clang++. Enable if you have clang, but don't want wrappers." OFF)
+if (CLANG_WRAPPERS AND NOT DISABLE_CLANG_WRAPPERS)
     set(CLANG_SYMLINK_WRAPPERS "clang clang++")
-elseif(NOT CLANG_WRAPPERS)
+elseif(DISABLE_CLANG_WRAPPERS)
     set(CLANG_SYMLINK_WRAPPERS "")
 else()
-#  look for clang and enable wrappers if clang is available
-#     if test -n "$CLANG"; then
-#         CLANG_SYMLINK_WRAPPERS='clang clang++'
-#     fi   
+    #  look for clang and enable wrappers if clang is available
+    if(CLANG_EXECUTABLE)
+        set(CLANG_SYMLINK_WRAPPERS "clang clang++")
+    endif()
 endif()
 
 ########################################################################
 ### GCC specific configuration
-option(GCC_COLOR_DIAGNOSTICS "Assume by default GCC has -fdiagnostics-color=auto option." ON)
-if (GCC_COLOR_DIAGNOSTICS)
+find_program(GCC_EXECUTABLE gcc)
+option(GCC_COLOR_DIAGNOSTICS "Assume by default GCC has -fdiagnostics-color=auto option.")
+option(DISABLE_GCC_COLOR_DIAGNOSTICS "Disable GCC's use of -fdiagnostics-color=auto option." OFF)
+if (GCC_COLOR_DIAGNOSTICS AND NOT DISABLE_GCC_COLOR_DIAGNOSTICS)
     set(HAVE_GCC_COLOR_DIAGNOSTICS 1)
-elseif(NOT GCC_COLOR_DIAGNOSTICS)
+elseif(DISABLE_GCC_COLOR_DIAGNOSTICS)
     # do not enable
 else()
     # Assume by default GCC has -fdiagnostics-color=auto option.
     set(HAVE_GCC_COLOR_DIAGNOSTICS 1)
 endif()
 
-option(GCC_SHOW_CARET "Assume by default GCC has -fdiagnostics-show-caret option." ON)
-if (GCC_SHOW_CARET)
+option(GCC_SHOW_CARET "Assume by default GCC has -fdiagnostics-show-caret option.")
+option(DISABLE_GCC_SHOW_CARET "Disable GCC's use of -fdiagnostics-show-caret option." OFF)
+if (GCC_SHOW_CARET AND NOT DISABLE_GCC_SHOW_CARET)
     set(HAVE_GCC_SHOW_CARET 1)
-elseif(NOT GCC_SHOW_CARET)
+elseif(DISABLE_GCC_SHOW_CARET)
     # do not enable
 else()
-    # Assume by default GCC has -fdiagnostics-show-caret option.
-    set(HAVE_GCC_SHOW_CARET 1)
-#  test if GCC supports show-caret and if so, enable.
-#     AC_CHECK_PROG(GCC_BIN,gcc,gcc)
-#     if test -n "$GCC_BIN"; then
-#         AC_MSG_CHECKING([for gcc -fdiagnostics-show-caret])
-#         $GCC_BIN -Werror -E -fdiagnostics-show-caret - >/dev/null 2>/dev/null
-#         if test $? -eq 0; then
-#             AC_MSG_RESULT(yes)
-#             AC_DEFINE(HAVE_GCC_SHOW_CARET, 1, [Define to 1 if gcc supports -fdiagnostics-show-caret])
-#         else
-#             AC_MSG_RESULT(no)
-#         fi
-#     fi
+    # Detect support
+    if(GCC_EXECUTABLE)
+        file(WRITE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c "int main(void) { return 0; }" )
+        message(STATUS "Checking gcc -fdiagnostics-show-caret support ")
+        execute_process(
+            COMMAND
+            ${GCC_EXECUTABLE} -Werror -E -fdiagnostics-show-caret ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c
+            RESULT_VARIABLE 
+            GCC_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )      
+        if (GCC_RESULT EQUAL 0)
+            set(HAVE_GCC_SHOW_CARET 1)
+        else()
+            # do not enable
+        endif()  
+        file(REMOVE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c "int main(void) { return 0; }" )
+    endif()
 endif()
 
-option(GCC_FDIRECTIVES_ONLY "Use by default GCC's -fdirectives-only option." ON)
-if (GCC_FDIRECTIVES_ONLY)
+option(GCC_FDIRECTIVES_ONLY "Use by default GCC's -fdirectives-only option.")
+option(DISABLE_GCC_FDIRECTIVES_ONLY "Disable GCC's use of -fdirectives-only option." OFF)
+if (GCC_FDIRECTIVES_ONLY AND NOT DISABLE_GCC_FDIRECTIVES_ONLY)
     set(HAVE_GCC_FDIRECTIVES_ONLY 1)
-elseif(NOT GCC_FDIRECTIVES_ONLY)
+elseif(DISABLE_GCC_FDIRECTIVES_ONLY)
     # do not enable
 else()
-    # Assume by default GCC's -fdirectives-only option.
-    set(HAVE_GCC_FDIRECTIVES_ONLY 1)
-#  test if GCC supports fdirectives-only and if so, enable.
-#     AC_CHECK_PROG(GCC_BIN,gcc,gcc)
-#     AC_MSG_CHECKING([whether $GCC_BIN -Werror works for unknown options])
-#     $GCC_BIN -Werror -totallybogusoption -E - >/dev/null 2>/dev/null
-#     if test $? -eq 0; then
-#         AC_MSG_RESULT(no)
-#         # can't detect if the option is supported, but that's too old clang anyway
-#     else
-#         AC_MSG_RESULT(yes)
-#         AC_MSG_CHECKING([for $GCC_BIN -E -fdirectives-only])
-#         $GCC_BIN -Werror -E -fdirectives-only - >/dev/null 2>/dev/null
-#         if test $? -eq 0; then
-#             AC_MSG_RESULT(yes)
-#             AC_DEFINE(HAVE_GCC_FDIRECTIVES_ONLY, 1, [Define to 1 if gcc supports -fdirectives-only])
-#         else
-#             AC_MSG_RESULT(no)
-#         fi
-#     fi
+    # Detect support
+    if(GCC_EXECUTABLE)
+        file(WRITE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c "int main(void) { return 0; }" )
+        message(STATUS "Checking if gcc -Werror works for unknown options")        
+        execute_process(
+            COMMAND
+            ${GCC_EXECUTABLE} -Werror -totallybogusoption -E ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c
+            RESULT_VARIABLE 
+            GCC_RESULT
+            OUTPUT_QUIET
+            ERROR_QUIET
+        )      
+        if (GCC_RESULT EQUAL 0)
+            # can't detect if the option is supported, but that's too old gcc anyway
+        else()
+            message(STATUS "Checking gcc -fdirectives-only support ")        
+            execute_process(
+                COMMAND
+                ${GCC_EXECUTABLE} -Werror -E -fdirectives-only ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c
+                RESULT_VARIABLE 
+                GCC_RESULT
+                OUTPUT_QUIET
+                ERROR_QUIET
+            )             
+            if (GCC_RESULT EQUAL 0)               
+                set(HAVE_GCC_FDIRECTIVES_ONLY 1)
+            else()
+                # do not enable
+            endif()  
+        endif()  
+        file(REMOVE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/check_compile_flag.c)        
+    endif()    
 endif()
 
 ########################################################################
