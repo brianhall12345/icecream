@@ -25,20 +25,24 @@ add_library(md5 OBJECT
     md5.h
 )
 
-add_executable(icecc-bin
+add_library(client STATIC
     argv.c
     argv.h
     arg.cpp
     client.h
     cpp.cpp
     local.cpp
-    main.cpp
     remote.cpp
     safeguard.cpp
     util.cpp
     util.h
-    $<TARGET_OBJECTS:md5>
+   $<TARGET_OBJECTS:md5>
 )
+
+add_executable(icecc-bin
+   main.cpp
+)
+
 set_target_properties(icecc-bin
   PROPERTIES OUTPUT_NAME icecc)
 
@@ -46,8 +50,18 @@ target_compile_definitions(icecc-bin
   PRIVATE
     "-DPLIBDIR=\"${CMAKE_INSTALL_PREFIX}/libexec/icecc\"")
 
+target_link_libraries(client
+    icecc
+)
+
+target_include_directories(client PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:include/>  # <prefix>/include
+)
+
 target_link_libraries(icecc-bin
     icecc
+    client
 )
 
 install(TARGETS icecc-bin 

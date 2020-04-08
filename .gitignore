@@ -53,3 +53,10 @@ tests/listing.txt
 
 #QtCreator project settings
 CMakeLists.txt.user
+
+#Cmake test results
+unittests/test-suite.log
+unittests/testargs
+unittests/testargs.log
+unittests/testargs.trs
+

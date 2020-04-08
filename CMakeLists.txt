@@ -27,6 +27,7 @@ cmake_minimum_required(VERSION 3.10)
 # Development versions: x.y.90
 # Pre-release versions: x.y.z, where z = 90 + X in rcX (1.1rc1 = 1.1.91)
 project(icecc VERSION 1.3.90 LANGUAGES CXX C)
+enable_testing()
 
 set(PACKAGE "icecc")
 set(PACKAGE_BUGREPORT "")
@@ -250,7 +251,6 @@ endif()
 
 ########################################################################
 ### CLang specific configuration
-# AC_CHECK_PROG(CLANG,clang,clang)
 find_program(CLANG_EXECUTABLE clang)
 message ("Looking for Clang: ${CLANG_EXECUTABLE}")
 option(CLANG_REWRITE_INCLUDES "Use by default Clang's -frewrite-includes option.")
@@ -410,13 +410,14 @@ add_subdirectory(doc)
 add_subdirectory(scheduler)
 add_subdirectory(services)
 add_subdirectory(suse)
+add_subdirectory(tests)
+add_subdirectory(unittests)
 
 #if(NOT DEFINED BUILD_EXPERIMENTAL)
 #    message(SEND_ERROR "Cmake build is experimental and should not be used")
 #else()
     message("The following things are known not to be finsihed/working in this build")
     message("Using this build implies you are working to fix something in this list")
-    message("    Create cmake install configuration - not sure what is left here")
     message("    build on OSX")
     message("    tests")
     message("    building downstream projects (icemon)")
