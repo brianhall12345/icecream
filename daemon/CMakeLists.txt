@@ -34,13 +34,9 @@ add_executable(iceccd
 
 target_link_libraries(iceccd
   icecc
-  archive
+  LibArchive::LibArchive
+  $<$<BOOL:${Libcap-ng_FOUND}>:Libcap-ng::Libcap-ng>
 )
-
-if(Libcap-ng_FOUND)
-  target_link_libraries(iceccd
-    Libcap-ng::Libcap-ng)
-endif()
 
 install(TARGETS iceccd 
         RUNTIME DESTINATION sbin

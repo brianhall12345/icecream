@@ -14,7 +14,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-if (DOCBOOK2MAN_FOUND)
+if (DocbookToMan_FOUND)
     include(${CMAKE_SOURCE_DIR}/Modules/DocbookToManUtils.cmake)
 
     set(man_xmls 

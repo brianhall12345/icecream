@@ -946,6 +946,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     maximum_remote_protocol = -1;
 
     int on = 1;
+    int sec;
 
     if (!setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &on, sizeof(on))) {
 #if defined( TCP_KEEPIDLE ) || defined( TCPCTL_KEEPIDLE )
@@ -955,7 +956,6 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
         int keepidle = TCPCTL_KEEPIDLE;
 #endif
 
-        int sec;
         sec = MAX_SCHEDULER_PING - 3 * MAX_SCHEDULER_PONG;
         setsockopt(_fd, IPPROTO_TCP, keepidle, (char *) &sec, sizeof(sec));
 #endif

@@ -14,7 +14,10 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-cmake_minimum_required(VERSION 3.10)
+# =============
+# CMake init
+# =============
+cmake_minimum_required(VERSION 3.12)
 
 # ====================
 # Version informations
@@ -22,38 +25,22 @@ cmake_minimum_required(VERSION 3.10)
 # Stable versions: x.y.z , where z < 50
 # Development versions: x.y.90
 # Pre-release versions: x.y.z, where z = 90 + X in rcX (1.1rc1 = 1.1.91)
-set(icecream_version_major "1")
-set(icecream_version_minor "3")
-set(icecream_version_micro "90")
-
-if(${icecream_version_micro} STREQUAL "")
-set(icecream_version "${icecream_version_major}.${icecream_version_minor}")
-else()
-set(icecream_version "${icecream_version_major}.${icecream_version_minor}.${icecream_version_micro}")
-endif()
+project(icecc VERSION 1.3.90 LANGUAGES CXX C)
 
 set(PACKAGE "icecc")
-set(VERSION "${icecream_version}")
 set(PACKAGE_BUGREPORT "")
 set(TARNAME "")
 set(PACKAGE_URL "")
 set(PACKAGE_NAME "${PACKAGE}")
-set(PACKAGE_VERSION "${VERSION}")
-if(VERSION)
-    set(PACKAGE_STRING "${PACKAGE} ${VERSION}")
-else()
-    set(PACKAGE_STRING "${PACKAGE}")
-endif()
+set(PACKAGE_VERSION "${icecc_VERSION}") #get rid of this one later
+set(PACKAGE_STRING "${PACKAGE} ${icecc_VERSION}")
+
 
 if(NOT TARNAME)
     string(REGEX REPLACE "[^a-zA-Z0-9_]" "-" TARNAME "${PACKAGE}")
 endif()    
 set(PACKAGE_TARNAME "${TARNAME}")
 
-# =============
-# CMake init
-# =============
-project(icecc LANGUAGES CXX C)
 
 SET(CMAKE_MODULE_PATH
     ${CMAKE_CURRENT_SOURCE_DIR}/Modules
@@ -115,9 +102,11 @@ endif()
 # ===========================
 # Find required base packages
 # ===========================
-find_package(Libcap-ng)
-if (Libcap-ng_FOUND)
-    set(HAVE_LIBCAP_NG 1)
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Libcap-ng)
+    if (Libcap-ng_FOUND)
+        set(HAVE_LIBCAP_NG 1)
+    endif()
 endif()
 find_package(LZO REQUIRED)
 find_package(TAR REQUIRED)
