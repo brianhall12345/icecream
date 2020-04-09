@@ -31,9 +31,13 @@ add_executable(iceccd
 
 target_link_libraries(iceccd
   icecc
-  #LibArchive::LibArchive # -- doesn't seem to work on 3.10 Ubuntu, perhaps this is 3.12 CMake?
-  ${LibArchive_LIBRARIES} # -- found this methodology in another example
+  #LibArchive::LibArchive # -- Would be nice to use this system, as it would give us both includes and libs, but CMake 3.10 doesn't have it.
+  ${LibArchive_LIBRARIES} # -- So we use the libs variable found
   $<$<BOOL:${Libcap-ng_FOUND}>:Libcap-ng::Libcap-ng>
+)
+
+target_include_directories(iceccd PUBLIC
+  ${LibArchive_INCLUDE_DIRS} # -- So we use the includes variable found
 )
 
 install(TARGETS iceccd 

@@ -17,7 +17,7 @@
 # =============
 # CMake init
 # =============
-#cmake_minimum_required(VERSION 3.12)
+ # CMake in Ubuntu 18.04 LTS is stuck at 3.10, so we try to avoid making folks download and compile their own
 cmake_minimum_required(VERSION 3.10)
 
 # ====================
