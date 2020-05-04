@@ -38,7 +38,9 @@ add_library(icecc STATIC
   platform.h
   gcc.cpp
   util.cpp
-  util.h)
+  util.h
+  socketwrapper.cpp
+  socketwrapper.h)
 
 
 target_link_libraries(icecc
@@ -59,8 +61,9 @@ target_include_directories(icecc PUBLIC
   $<INSTALL_INTERFACE:include/>  # <prefix>/include
 )
 
+if(NOT WIN32)
 libtool_create_control_file(icecc)
-
+endif()
 
 set(prefix "${CMAKE_INSTALL_PREFIX}")
 set(exec_prefix "\$\{prefix\}")

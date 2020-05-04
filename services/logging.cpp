@@ -22,6 +22,9 @@
 
 #include "config.h"
 #include <iostream>
+#include <io.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "logging.h"
 #include <fstream>
 #include <signal.h>
@@ -65,7 +68,11 @@ ofdbuf::int_type ofdbuf::overflow( int_type c )
 {
     if( c != EOF ) {
         char cc = c;
-        if( write( fd, &cc, 1 ) != 1 )
+#if _WIN32
+        if( _write( fd, &cc, 1) != 1 )
+#else
+        if (write(fd, &cc, 1) != 1)
+#endif
             return EOF;
     }
     return c;
@@ -73,13 +80,23 @@ ofdbuf::int_type ofdbuf::overflow( int_type c )
 
 streamsize ofdbuf::xsputn( const char* c, streamsize n )
 {
-    return write( fd, c, n );
+#if _WIN32
+    return _write(fd, c, (unsigned int)n);
+#else
+    return write(fd, c, n);
+#endif
 }
 
-ostream* ccache_stream( int fd )
+ostream* ccache_stream(int fd)
 {
+#if _WIN32
+    struct _stat statBuf;
+    int status = _fstat(fd, &statBuf);
+    if (status < 0 || (statBuf.st_mode & (O_WRONLY | O_RDWR)) == 0) {
+#else
     int status = fcntl( fd, F_GETFL );
-    if( status < 0 || ( status & ( O_WRONLY | O_RDWR )) == 0 ) {
+    if (status < 0 || (status & (O_WRONLY | O_RDWR)) == 0) {
+#endif
         // As logging is not set up yet, this will log to stderr.
         log_warning() << "UNCACHED_ERR_FD provides an invalid file descriptor, using stderr" << endl;
         return &cerr; // fd is not valid fd for writting
@@ -121,7 +138,7 @@ void setup_debug(int level, const string &filename, const string &prefix)
 #endif
         output = &logfile_file;
     } else if( const char* ccache_err_fd = getenv( "UNCACHED_ERR_FD" )) {
-        output = ccache_stream( atoi( ccache_err_fd ));
+        output = ccache_stream(read_ptr_from_charstr<int>(ccache_err_fd));
     } else {
         output = &cerr;
     }
@@ -154,7 +171,11 @@ void setup_debug(int level, const string &filename, const string &prefix)
         logfile_error = &logfile_null;
     }
 
+#if _WIN32
+#pragma message("Windows doesn't have SIGHUP signal. Unsure what an alternative would be here?")
+#else
     signal(SIGHUP, reset_debug_signal_handler);
+#endif
 }
 
 void reset_debug()

@@ -25,8 +25,13 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#if _WIN32
+#else
 #include <sys/wait.h>
+#endif
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +42,13 @@
 #include <comm.h>
 #include "client.h"
 #include "pipes.h"
+#include "socketwrapper.h"
+
+#if _WIN32
+#define execv _execv
+#define close _close
+#define getpid _getpid
+#endif
 
 using namespace std;
 
@@ -281,7 +293,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
     bool color_output = job.language() != CompileJob::Lang_Custom
                         && colorify_wanted(job);
-    int pf[2];
+    SocketWrapper pf[2];
 
     if (color_output && create_large_pipe(pf)) {
         color_output = false;
@@ -300,7 +312,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
         dcc_increment_safeguard(job.language() == CompileJob::Lang_Custom ? SafeguardStepCustom : SafeguardStepCompiler);
 
         if (color_output) {
-            if ((-1 == close(pf[0])) && (errno != EBADF)){
+            if (!pf[0].Close() && (errno != EBADF)){
                 log_perror("close failed");
             }
             if ((-1 == close(2)) && (errno != EBADF)){
@@ -333,7 +345,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     argv.clear();
 
     if (color_output) {
-        if ((-1 == close(pf[1])) && (errno != EBADF)){
+        if (!pf[1].Close() && (errno != EBADF)){
             log_perror("close failed");
         }
     }
@@ -342,8 +354,10 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
     // have a matching JobLocalDoneMsg
     void (*old_sigint)(int) = signal(SIGINT, handle_user_break);
     void (*old_sigterm)(int) = signal(SIGTERM, handle_user_break);
+#if !_WIN32
     void (*old_sigquit)(int) = signal(SIGQUIT, handle_user_break);
     void (*old_sighup)(int) = signal(SIGHUP, handle_user_break);
+#endif
 
     if (color_output) {
         string s_ccout;
@@ -351,7 +365,7 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
         for (;;) {
 	    int r;
-            while ((r = read(pf[0], buf, sizeof(buf) - 1)) > 0) {
+            while ((r = pf[0].Recv(buf, sizeof(buf) - 1, 0)) > 0) {
                 buf[r] = '\0';
                 s_ccout.append(buf);
             }
@@ -376,8 +390,10 @@ int build_local(CompileJob &job, MsgChannel *local_daemon, struct rusage *used)
 
     signal(SIGINT, old_sigint);
     signal(SIGTERM, old_sigterm);
+#if !_WIN32
     signal(SIGQUIT, old_sigquit);
     signal(SIGHUP, old_sighup);
+#endif
 
     if (user_break_signal) {
         raise(user_break_signal);

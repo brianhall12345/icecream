@@ -27,8 +27,15 @@
 #include <job.h>
 #include <comm.h>
 #include <sys/types.h>
+#if _WIN32
+typedef int pid_t;
+#define R_OK 0
+#include <io.h>
+#include <process.h>
+#else
 #include <sys/time.h>
 #include <sys/resource.h>
+#endif
 
 #include <stdexcept>
 

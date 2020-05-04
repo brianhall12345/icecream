@@ -23,14 +23,23 @@
 #ifndef ICECREAM_LOGGING_H
 #define ICECREAM_LOGGING_H
 
+#if _WIN32
+#include <winsock2.h>
+#include <time.h>
+#else
 #include <sys/time.h>
+#endif
 #include <stdlib.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <errno.h>
 #include <string>
 #include <iostream>
 #include <cassert>
 #include <cstring>
+
+#include "util.h"
 
 // Verbosity level, from least to most.
 enum VerbosityLevel {
@@ -65,7 +74,11 @@ static inline std::ostream &output_date(std::ostream &os)
         os << logfile_prefix;
     }
 
+#if WIN32
+    os << "[" << GetCurrentProcessId() << "] ";
+#else
     os << "[" << getpid() << "] ";
+#endif
 
     os << buf;
     return os;

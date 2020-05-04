@@ -29,14 +29,22 @@
 #include "getifaddrs.h"
 #include "logging.h"
 
+#if !_WIN32
 #include <netinet/in.h>
+#endif
 
 #ifndef HAVE_IFADDRS_H
 
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
 #include <net/if.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#endif
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>

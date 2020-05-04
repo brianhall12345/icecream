@@ -24,9 +24,16 @@
 #include "config.h"
 
 #include <sys/types.h>
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
 #include <sys/socket.h>
+#endif
 #include <sys/stat.h>
+#if _WIN32
+#else
 #include <sys/wait.h>
+#endif
 
 
 #ifdef __FreeBSD__
@@ -38,13 +45,18 @@
 #include <signal.h>
 #include <limits.h>
 #include <assert.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <stdio.h>
 #include <errno.h>
 #include <map>
 #include <algorithm>
+#if _WIN32
+#else
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
 #include <vector>
 
 #include <comm.h>
@@ -54,6 +66,14 @@
 #include "util.h"
 #include "../services/util.h"
 #include "pipes.h"
+
+#if _WIN32
+#define close _close
+#define open _open
+#define unlink _unlink
+#define getpid _getpid
+#define access _access
+#endif
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
@@ -506,7 +526,7 @@ static int build_remote_int(CompileJob &job, UseCSMsg *usecs, MsgChannel *local_
         }
 
         if (!preproc_file) {
-            int sockets[2];
+            SocketWrapper sockets[2];
 
             if (create_large_pipe(sockets) != 0) {
                 log_perror("build_remote_in pipe");
@@ -792,7 +812,7 @@ static unsigned int requiredRemoteFeatures()
 
 int build_remote(CompileJob &job, MsgChannel *local_daemon, const Environments &_envs, int permill)
 {
-    srand(time(0) + getpid());
+    srand((int)time(0) + getpid());
 
     int torepeat = 1;
     bool has_split_dwarf = job.dwarfFissionEnabled();

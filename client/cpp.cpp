@@ -30,12 +30,20 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
 
 #include "client.h"
+
+#if _WIN32
+#define execv _execv
+#define close _close
+#define access _access
+#endif
 
 using namespace std;
 
@@ -45,7 +53,7 @@ bool dcc_is_preprocessed(const string &sfile)
         return false;
     }
 
-    int last = sfile.size() - 1;
+    int last = (int)sfile.size() - 1;
 
     if ((sfile[last - 1] == '.') && (sfile[last] == 'i')) {
         return true;    // .i
@@ -68,7 +76,7 @@ bool dcc_is_preprocessed(const string &sfile)
  * allows us to overlap opening the TCP socket, which probably doesn't
  * use many cycles, with running the preprocessor.
  **/
-pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
+pid_t call_cpp(CompileJob &job, SocketWrapper fdwrite, SocketWrapper fdread)
 {
     flush_debug();
     pid_t pid = fork();
@@ -80,8 +88,8 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
 
     if (pid != 0) {
         /* Parent.  Close the write fd.  */
-        if (fdwrite > -1) {
-            if ((-1 == close(fdwrite)) && (errno != EBADF)){
+        if (fdwrite.IsValid()) {
+            if (!fdwrite.Close() && (errno != EBADF)){
                 log_perror("close() failed");
             }
         }
@@ -90,8 +98,8 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
     }
 
     /* Child.  Close the read fd, in case we have one.  */
-    if (fdread > -1) {
-        if ((-1 == close(fdread)) && (errno != EBADF)){
+    if (fdread.IsValid()) {
+        if (!fdread.Close() && (errno != EBADF)){
             log_perror("close failed");
         }
     }
@@ -162,7 +170,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
             }
         }
 
-        int argc = flags.size();
+        int argc = (int)flags.size();
         argc++; // the program
         argc += 2; // -E file.i
         argc += 1; // -frewrite-includes / -fdirectives-only
@@ -199,7 +207,7 @@ pid_t call_cpp(CompileJob &job, int fdwrite, int fdread)
         /* Ignore failure */
         close(STDOUT_FILENO);
         dup2(fdwrite, STDOUT_FILENO);
-        close(fdwrite);
+        fdwrite.Close();
     }
 
     dcc_increment_safeguard(SafeguardStepCompiler);

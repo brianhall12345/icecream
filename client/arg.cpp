@@ -25,7 +25,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
@@ -34,6 +36,10 @@
 #include <sys/stat.h>
 
 #include "client.h"
+
+#if _WIN32
+#define access _access
+#endif
 
 using namespace std;
 

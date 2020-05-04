@@ -28,7 +28,10 @@
 #include "exitcode.h"
 #include "logging.h"
 #include "pipes.h"
+#if _WIN32
+#else
 #include <sys/select.h>
+#endif
 #include <algorithm>
 
 #ifdef __FreeBSD__
@@ -36,13 +39,21 @@
 #endif
 
 /* According to earlier standards */
+#if _WIN32
+#else
 #include <sys/time.h>
+#endif
 #include <sys/types.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+#if _WIN32
+#else
 #include <sys/fcntl.h>
 #include <sys/wait.h>
-#include <signal.h>
 #include <sys/resource.h>
+#endif
+#include <signal.h>
 #if HAVE_SYS_USER_H && !defined(__DragonFly__)
 #  include <sys/user.h>
 #endif

@@ -23,13 +23,19 @@
 #include "exitcode.h"
 
 #include <sys/types.h>
+#if !_WIN32
 #include <sys/wait.h>
+#endif
 
 /*
  Converts exit status from waitpid() to exit status to be returned by the process.
 */
 int shell_exit_status(int status)
 {
+#if _WIN32
+#pragma message("TODO: Implement shell_exit_status() for Win32")
+    return 0;
+#else
     if (WIFEXITED(status)) {
         return WEXITSTATUS(status);
     } else if (WIFSIGNALED(status)) {
@@ -37,4 +43,5 @@ int shell_exit_status(int status)
     } else {
         return -1;
     }
+#endif
 }

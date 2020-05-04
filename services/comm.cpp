@@ -26,21 +26,31 @@
 
 #include <signal.h>
 #include <sys/types.h>
-#include <netinet/in.h>
+#ifdef _WIN32
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#include <afunix.h>
+#else
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <sys/un.h>
 #include <arpa/inet.h>
-#include <poll.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <poll.h>
+#endif
 #ifdef HAVE_NETINET_TCP_VAR_H
 #include <sys/socketvar.h>
 #include <netinet/tcp_var.h>
 #endif
 #include <errno.h>
 #include <fcntl.h>
+#if !_WIN32
 #include <netdb.h>
+#endif
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <errno.h>
 #include <string>
 #include <iostream>
@@ -52,8 +62,10 @@
 #include <cap-ng.h>
 #endif
 #include "getifaddrs.h"
+#if !_WIN32
 #include <net/if.h>
 #include <sys/ioctl.h>
+#endif
 
 #include "logging.h"
 #include "job.h"
@@ -133,7 +145,7 @@ bool MsgChannel::read_a_bit()
             break;
         }
 
-        ssize_t ret = read(fd, buf, count);
+        ssize_t ret = fd.Recv(buf, (int)count, 0);
 
         if (ret > 0) {
             count -= ret;
@@ -294,7 +306,7 @@ bool MsgChannel::update_state(void)
         /* handled elsewere */
         break;
 
-    case ERROR:
+    case CH_ERROR:
         return false;
     }
 
@@ -359,12 +371,22 @@ bool MsgChannel::flush_writebuf(bool blocking)
         ssize_t ret = send(fd, buf, min( msgtogo, max_write_size ), MSG_NOSIGNAL);
         send_errno = errno;
 #else
+#if !_WIN32
         void (*oldsigpipe)(int);
+#endif
 
+#if _WIN32
+        // easy to ignore a signal windows doesn't send 
+#else
         oldsigpipe = signal(SIGPIPE, SIG_IGN);
-        ssize_t ret = send(fd, buf, min( msgtogo, max_write_size ), 0);
+#endif
+        ssize_t ret = fd.Send(buf, (int)min( msgtogo, max_write_size ), 0);
         send_errno = errno;
+#if _WIN32
+        // easy to ignore a signal windows doesn't send 
+#else
         signal(SIGPIPE, oldsigpipe);
+#endif
 #endif
 
         if (ret < 0) {
@@ -379,9 +401,13 @@ bool MsgChannel::flush_writebuf(bool blocking)
 
                 for (;;) {
                     pollfd pfd;
-                    pfd.fd = fd;
+                    pfd.fd = fd.socket();
                     pfd.events = POLLOUT;
+#if _WIN32
+                    ready = WSAPoll(&pfd, 1, 30 * 1000);
+#else
                     ready = poll(&pfd, 1, 30 * 1000);
+#endif
 
                     if (ready < 0 && errno == EINTR) {
                         continue;
@@ -471,7 +497,7 @@ MsgChannel &MsgChannel::operator>>(string &s)
 
 MsgChannel &MsgChannel::operator<<(const std::string &s)
 {
-    uint32_t len = 1 + s.length();
+    uint32_t len = (uint32_t)(1 + s.length());
     *this << len;
     writefull(s.c_str(), len);
     return *this;
@@ -510,7 +536,7 @@ MsgChannel &MsgChannel::operator<<(const std::list<std::string> &l)
 
 void MsgChannel::write_environments(const Environments &envs)
 {
-    *this << envs.size();
+    *this << (uint32_t)envs.size();
 
     for (Environments::const_iterator it = envs.begin(); it != envs.end(); ++it) {
         *this << it->first;
@@ -625,7 +651,7 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
         out_len = in_len + in_len / 64 + 16 + 3;
     else if (proto == C_ZSTD)
         out_len = ZSTD_COMPRESSBOUND(in_len);
-    *this << in_len;
+    *this << (uint32_t)in_len;
     size_t msgtogo_old = msgtogo;
     *this << (uint32_t) 0;
 
@@ -662,7 +688,7 @@ void MsgChannel::writecompressed(const unsigned char *in_buf, size_t _in_len, si
         out_len = ret;
     }
 
-    uint32_t _olen = htonl(out_len);
+    uint32_t _olen = htonl((uint32_t)out_len);
     if(out_len > MAX_MSG_SIZE) {
         log_error() << "internal error - size of compressed message to write exceeds max size:" << out_len << endl;
     }
@@ -699,7 +725,7 @@ void MsgChannel::write_line(const string &line)
 
 void MsgChannel::set_error(bool silent)
 {
-    if( instate == ERROR ) {
+    if( instate == CH_ERROR) {
         return;
     }
     if( !silent && !set_error_recursion ) {
@@ -714,40 +740,59 @@ void MsgChannel::set_error(bool silent)
         }
         set_error_recursion = false;
     }
-    instate = ERROR;
+    instate = CH_ERROR;
     eof = true;
 }
 
-static int prepare_connect(const string &hostname, unsigned short p,
+static SocketWrapper prepare_connect(const string &hostname, unsigned short p,
                            struct sockaddr_in &remote_addr)
 {
-    int remote_fd;
+    SocketWrapper remote_fd;
     int i = 1;
 
-    if ((remote_fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+    if (remote_fd.Create(PF_INET, SOCK_STREAM, 0) < 0 ) {
         log_perror("socket()");
-        return -1;
+        return SocketWrapper::InvalidSocket();
     }
 
     struct hostent *host = gethostbyname(hostname.c_str());
 
     if (!host) {
+#if _WIN32
+        int err;
+        char msgbuf[256];   // for a message up to 255 bytes.
+        msgbuf[0] = '\0';    // Microsoft doesn't guarantee this on man page.
+        err = WSAGetLastError();
+
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
+            NULL,                // lpsource
+            err,                 // message id
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),    // languageid
+            msgbuf,              // output buffer
+            sizeof(msgbuf),     // size of msgbuf, bytes
+            NULL);               // va_list of arguments
+
+        if (!*msgbuf)
+            sprintf(msgbuf, "%d", err);  // provide error # if no string available
+        log_error() << "Connecting to " << hostname << " failed: " << msgbuf << endl;
+#else
         log_error() << "Connecting to " << hostname << " failed: " << hstrerror( h_errno ) << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+#endif
+        if (!remote_fd.Close()){
             log_perror("close failed");
         }
-        return -1;
+        return SocketWrapper::InvalidSocket();
     }
 
     if (host->h_length != 4) {
         log_error() << "Invalid address length" << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if (!remote_fd.Close()){
             log_perror("close failed");
         }
-        return -1;
+        return SocketWrapper::InvalidSocket();
     }
 
-    setsockopt(remote_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &i, sizeof(i));
+    remote_fd.SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (char *) &i, sizeof(i));
 
     remote_addr.sin_family = AF_INET;
     remote_addr.sin_port = htons(p);
@@ -756,24 +801,28 @@ static int prepare_connect(const string &hostname, unsigned short p,
     return remote_fd;
 }
 
-static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t remote_size,
+static bool connect_async(SocketWrapper remote_fd, struct sockaddr *remote_addr, size_t remote_size,
                           int timeout)
 {
-    fcntl(remote_fd, F_SETFL, O_NONBLOCK);
-
+    remote_fd.SetBlocking(false);
+    
     // code majorly derived from lynx's http connect (GPL)
-    int status = connect(remote_fd, remote_addr, remote_size);
+    int status = remote_fd.Connect(remote_addr, (int)remote_size);
 
     if ((status < 0) && (errno == EINPROGRESS || errno == EAGAIN)) {
         pollfd pfd;
-        pfd.fd = remote_fd;
+        pfd.fd = remote_fd.socket();
         pfd.events = POLLOUT;
         int ret;
 
         do {
             /* we poll for a specific time and if that succeeds, we connect one
                final time. Everything else we ignore */
+#if _WIN32
+            ret = WSAPoll(&pfd, 1, timeout * 1000);
+#else
             ret = poll(&pfd, 1, timeout * 1000);
+#endif
 
             if (ret < 0 && errno == EINTR) {
                 continue;
@@ -788,7 +837,7 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
             **  connect again, and get EISCONN, it means we have a
             **  successful connection.  But don't check with SOCKS.
             */
-            status = connect(remote_fd, remote_addr, remote_size);
+            status = remote_fd.Connect(remote_addr, (int)remote_size);
 
             if ((status < 0) && (errno == EISCONN)) {
                 status = 0;
@@ -801,7 +850,7 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
         **  The connect attempt failed or was interrupted,
         **  so close up the socket.
         */
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if (!remote_fd.Close()){
             log_perror("close failed");
         }
         return false;
@@ -809,7 +858,7 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
         /*
         **  Make the socket blocking again on good connect.
         */
-        fcntl(remote_fd, F_SETFL, 0);
+        remote_fd.SetBlocking(true);
     }
 
     return true;
@@ -817,10 +866,10 @@ static bool connect_async(int remote_fd, struct sockaddr *remote_addr, size_t re
 
 MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int timeout)
 {
-    int remote_fd;
+    SocketWrapper remote_fd;
     struct sockaddr_in remote_addr;
 
-    if ((remote_fd = prepare_connect(hostname, p, remote_addr)) < 0) {
+    if ((remote_fd = prepare_connect(hostname, p, remote_addr)).IsValid()) {
         return 0;
     }
 
@@ -830,12 +879,12 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
         }
     } else {
         int i = 2048;
-        setsockopt(remote_fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
+        remote_fd.SetSockOpt(SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char*>(&i), sizeof(i));
 
-        if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
+        if (remote_fd.Connect((struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
             log_perror_trace("connect");
             trace() << "connect failed on " << hostname << endl;
-            if (-1 == close(remote_fd) && (errno != EBADF)){
+            if (!remote_fd.Close()){
                 log_perror("close failed");
             }
             return 0;
@@ -848,10 +897,10 @@ MsgChannel *Service::createChannel(const string &hostname, unsigned short p, int
 
 MsgChannel *Service::createChannel(const string &socket_path)
 {
-    int remote_fd;
+    SocketWrapper remote_fd;
     struct sockaddr_un remote_addr;
 
-    if ((remote_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+    if (remote_fd.Create(AF_UNIX, SOCK_STREAM, 0) < 0) {
         log_perror("socket()");
         return 0;
     }
@@ -863,10 +912,10 @@ MsgChannel *Service::createChannel(const string &socket_path)
         log_error() << "socket_path path too long for sun_path" << endl;
     }
 
-    if (connect(remote_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
+    if (remote_fd.Connect((struct sockaddr *) &remote_addr, sizeof(remote_addr)) < 0) {
         log_perror_trace("connect");
         trace() << "connect failed on " << socket_path << endl;
-        if ((-1 == close(remote_fd)) && (errno != EBADF)){
+        if (!remote_fd.Close()){
             log_perror("close failed");
         }
         return 0;
@@ -898,7 +947,7 @@ bool MsgChannel::eq_ip(const MsgChannel &s) const
             && memcmp(&s1->sin_addr, &s2->sin_addr, sizeof(s1->sin_addr)) == 0);
 }
 
-MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
+MsgChannel *Service::createChannel(SocketWrapper fd, struct sockaddr *_a, socklen_t _l)
 {
     MsgChannel *c = new MsgChannel(fd, _a, _l, false);
 
@@ -910,7 +959,7 @@ MsgChannel *Service::createChannel(int fd, struct sockaddr *_a, socklen_t _l)
     return c;
 }
 
-MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
+MsgChannel::MsgChannel(SocketWrapper _fd, struct sockaddr *_a, socklen_t _l, bool text)
     : fd(_fd)
 {
     addr_len = (sizeof(struct sockaddr) > _l) ? sizeof(struct sockaddr) : _l;
@@ -948,7 +997,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
     int on = 1;
     int sec;
 
-    if (!setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, (char *) &on, sizeof(on))) {
+    if (!_fd.SetSockOpt(SOL_SOCKET, SO_KEEPALIVE, (char *) &on, sizeof(on))) {
 #if defined( TCP_KEEPIDLE ) || defined( TCPCTL_KEEPIDLE )
 #if defined( TCP_KEEPIDLE )
         int keepidle = TCP_KEEPIDLE;
@@ -957,7 +1006,7 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 #endif
 
         sec = MAX_SCHEDULER_PING - 3 * MAX_SCHEDULER_PONG;
-        setsockopt(_fd, IPPROTO_TCP, keepidle, (char *) &sec, sizeof(sec));
+        _fd.SetSockOpt(IPPROTO_TCP, keepidle, (char *) &sec, sizeof(sec));
 #endif
 
 #if defined( TCP_KEEPINTVL ) || defined( TCPCTL_KEEPINTVL )
@@ -968,20 +1017,21 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 #endif
 
         sec = MAX_SCHEDULER_PONG;
-        setsockopt(_fd, IPPROTO_TCP, keepintvl, (char *) &sec, sizeof(sec));
+        _fd.SetSockOpt(IPPROTO_TCP, keepintvl, (char *) &sec, sizeof(sec));
 #endif
 
 #ifdef TCP_KEEPCNT
         sec = 3;
-        setsockopt(_fd, IPPROTO_TCP, TCP_KEEPCNT, (char *) &sec, sizeof(sec));
+        _fd.SetSockOpt(IPPROTO_TCP, TCP_KEEPCNT, (char *) &sec, sizeof(sec));
 #endif
     }
 
-    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
-        log_perror("MsgChannel fcntl()");
+    if (_fd.SetBlocking(false) < 0)
+    {
+        log_perror("MsgChannel set non blocking()");
     }
 
-    if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+    if (fd.SetCloseOnExec(true) < 0) {
         log_perror("MsgChannel fcntl() 2");
     }
 
@@ -1006,13 +1056,11 @@ MsgChannel::MsgChannel(int _fd, struct sockaddr *_a, socklen_t _l, bool text)
 
 MsgChannel::~MsgChannel()
 {
-    if (fd >= 0) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
+    if (fd.IsValid()) {
+        if (!fd.Close()){
             log_perror("close failed");
         }
     }
-
-    fd = -1;
 
     if (msgbuf) {
         free(msgbuf);
@@ -1037,15 +1085,19 @@ string MsgChannel::dump() const
 bool MsgChannel::wait_for_protocol()
 {
     /* protocol is 0 if we couldn't send our initial protocol version.  */
-    if (protocol == 0 || instate == ERROR) {
+    if (protocol == 0 || instate == CH_ERROR) {
         return false;
     }
 
     while (instate == NEED_PROTO) {
         pollfd pfd;
-        pfd.fd = fd;
+        pfd.fd = fd.socket();
         pfd.events = POLLIN;
+#if _WIN32
+        int ret = WSAPoll(&pfd, 1, 15 * 1000); // 15s
+#else
         int ret = poll(&pfd, 1, 15 * 1000); // 15s
+#endif
 
         if (ret < 0 && errno == EINTR) {
             continue;
@@ -1073,27 +1125,27 @@ bool MsgChannel::wait_for_protocol()
 
 void MsgChannel::setBulkTransfer()
 {
-    if (fd < 0) {
+    if (!fd.IsValid()) {
         return;
     }
 
     int i = 0;
-    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *) &i, sizeof(i));
+    fd.SetSockOpt(IPPROTO_TCP, TCP_NODELAY, (char *) &i, sizeof(i));
 
     // would be nice but not portable across non-linux
 #ifdef __linux__
     i = 1;
-    setsockopt(fd, IPPROTO_TCP, TCP_CORK, (char *) &i, sizeof(i));
+    fd.SetSockOpt(IPPROTO_TCP, TCP_CORK, (char *) &i, sizeof(i));
 #endif
     i = 65536;
-    setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &i, sizeof(i));
+    fd.SetSockOpt(SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char*>(&i), sizeof(i));
 }
 
 /* This waits indefinitely (well, TIMEOUT seconds) for a complete
    message to arrive.  Returns false if there was some error.  */
 bool MsgChannel::wait_for_msg(int timeout)
 {
-    if (instate == ERROR) {
+    if (instate == CH_ERROR) {
         return false;
     }
 
@@ -1114,10 +1166,14 @@ bool MsgChannel::wait_for_msg(int timeout)
 
     while (!has_msg()) {
         pollfd pfd;
-        pfd.fd = fd;
+        pfd.fd = fd.socket();
         pfd.events = POLLIN;
 
+#if _WIN32
+        if (WSAPoll(&pfd, 1, timeout * 1000) <= 0) {
+#else
         if (poll(&pfd, 1, timeout * 1000) <= 0) {
+#endif
             if (errno == EINTR) {
                 continue;
             }
@@ -1298,7 +1354,7 @@ Msg *MsgChannel::get_msg(int timeout, bool eofAllowed)
 
 bool MsgChannel::send_msg(const Msg &m, int flags)
 {
-    if (instate == ERROR) {
+    if (instate == CH_ERROR) {
         return false;
     }
     if (instate == NEED_PROTO && !wait_for_protocol()) {
@@ -1313,7 +1369,7 @@ bool MsgChannel::send_msg(const Msg &m, int flags)
     } else {
         *this << (uint32_t) 0;
         m.send_to_channel(this);
-        uint32_t out_len = msgtogo - msgtogo_old - 4;
+        uint32_t out_len = (uint32_t)msgtogo - (uint32_t)msgtogo_old - 4;
         if(out_len > MAX_MSG_SIZE) {
             log_error() << "internal error - size of message to write exceeds max size:" << out_len << endl;
             set_error();
@@ -1359,7 +1415,7 @@ void Broadcasts::broadcastSchedulerVersion(int scheduler_port, const char* netna
 {
     // Code for older schedulers than version 38. Has endianness problems, the message size
     // is not BROAD_BUFLEN and the netname is possibly not null-terminated.
-    const char length_netname = strlen(netname);
+    const char length_netname = (char)strlen(netname);
     const int schedbuflen = 5 + sizeof(uint64_t) + length_netname;
     char *buf = new char[ schedbuflen ];
     buf[0] = 'I';
@@ -1424,32 +1480,33 @@ void Broadcasts::getSchedulerVersionData( const char* buf, int* protocol, time_t
 }
 
 /* Returns a filedesc. or a negative value for errors.  */
-static int open_send_broadcast(int port, const char* buf, int size)
+static SocketWrapper open_send_broadcast(int port, const char* buf, int size)
 {
-    int ask_fd;
+    SocketWrapper ask_fd;
     struct sockaddr_in remote_addr;
 
-    if ((ask_fd = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+    ask_fd.Create(PF_INET, SOCK_DGRAM, 0);
+    if (ask_fd.IsValid()) {
         log_perror("open_send_broadcast socket");
-        return -1;
+        return SocketWrapper::InvalidSocket();
     }
 
-    if (fcntl(ask_fd, F_SETFD, FD_CLOEXEC) < 0) {
+    if (ask_fd.SetCloseOnExec(true) < 0) {
         log_perror("open_send_broadcast fcntl");
-        if (-1 == close(ask_fd)){
+        if (!ask_fd.Close()){
             log_perror("close failed");
         }
-        return -1;
+        return SocketWrapper::InvalidSocket();
     }
 
     int optval = 1;
 
-    if (setsockopt(ask_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval)) < 0) {
+    if (ask_fd.SetSockOpt(SOL_SOCKET, SO_BROADCAST, reinterpret_cast<char*>(&optval), sizeof(optval)) < 0) {
         log_perror("open_send_broadcast setsockopt");
-        if (-1 == close(ask_fd)){
+        if (!ask_fd.Close()){
             log_perror("close failed");
         }
-        return -1;
+        return SocketWrapper::InvalidSocket();
     }
 
     struct kde_ifaddrs *addrs;
@@ -1457,7 +1514,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
     int ret = kde_getifaddrs(&addrs);
 
     if (ret < 0) {
-        return ret;
+        return SocketWrapper::InvalidSocket(ret);
     }
 
     for (struct kde_ifaddrs *addr = addrs; addr != NULL; addr = addr->ifa_next) {
@@ -1498,7 +1555,7 @@ static int open_send_broadcast(int port, const char* buf, int size)
             remote_addr.sin_port = htons(port);
             remote_addr.sin_addr = ((sockaddr_in *)addr->ifa_broadaddr)->sin_addr;
 
-            if (sendto(ask_fd, buf, size, 0, (struct sockaddr *)&remote_addr,
+            if (ask_fd.SendTo(buf, size, 0, (struct sockaddr *)&remote_addr,
                        sizeof(remote_addr)) != size) {
                 log_perror("open_send_broadcast sendto");
             }
@@ -1511,17 +1568,17 @@ static int open_send_broadcast(int port, const char* buf, int size)
 
 void Broadcasts::broadcastData(int port, const char* buf, int len)
 {
-    int fd = open_send_broadcast(port, buf, len);
-    if (fd >= 0) {
-        if ((-1 == close(fd)) && (errno != EBADF)){
+    SocketWrapper fd = open_send_broadcast(port, buf, len);
+    if (fd.IsValid()) {
+        if (!fd.Close()){
             log_perror("close failed");
         }
     }
     int secondPort = get_second_port_for_debug( port );
     if( secondPort > 0 ) {
-        int fd2 = open_send_broadcast(secondPort, buf, len);
-        if (fd2 >= 0) {
-            if ((-1 == close(fd2)) && (errno != EBADF)){
+        SocketWrapper fd2 = open_send_broadcast(secondPort, buf, len);
+        if (fd2.IsValid()) {
+            if (!fd2.Close()){
                 log_perror("close failed");
             }
         }
@@ -1533,8 +1590,6 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
     : netname(_netname)
     , schedname(_schedname)
     , timeout(_timeout)
-    , ask_fd(-1)
-    , ask_second_fd(-1)
     , sport(port)
     , best_version(0)
     , best_start_time(0)
@@ -1577,13 +1632,13 @@ DiscoverSched::DiscoverSched(const std::string &_netname, int _timeout,
 
 DiscoverSched::~DiscoverSched()
 {
-    if (ask_fd >= 0) {
-        if ((-1 == close(ask_fd)) && (errno != EBADF)){
+    if (ask_fd.IsValid()) {
+        if (!ask_fd.Close()){
             log_perror("close failed");
         }
     }
-    if (ask_second_fd >= 0) {
-        if ((-1 == close(ask_second_fd)) && (errno != EBADF)){
+    if (ask_second_fd.IsValid()) {
+        if (!ask_second_fd.Close()){
             log_perror("close failed");
         }
     }
@@ -1599,8 +1654,8 @@ void DiscoverSched::attempt_scheduler_connect()
     time0 = time(0) + MAX_SCHEDULER_PONG;
     log_info() << "scheduler is on " << schedname << ":" << sport << " (net " << netname << ")" << endl;
 
-    if ((ask_fd = prepare_connect(schedname, sport, remote_addr)) >= 0) {
-        fcntl(ask_fd, F_SETFL, O_NONBLOCK);
+    if ((ask_fd = prepare_connect(schedname, sport, remote_addr)).IsValid()) {
+        ask_fd.SetBlocking(false);
     }
 }
 
@@ -1746,13 +1801,17 @@ MsgChannel *DiscoverSched::try_get_scheduler()
 
         /* Read/test all packages arrived until now.  */
         while (get_broad_answer(ask_fd, 0/*timeout*/, buf2, (struct sockaddr_in *) &remote_addr, &remote_len)
-                || ( ask_second_fd != -1 && get_broad_answer(ask_second_fd, 0/*timeout*/, buf2,
+                || ( ask_second_fd.IsValid() && get_broad_answer(ask_second_fd, 0/*timeout*/, buf2,
                                             (struct sockaddr_in *) &remote_addr, &remote_len))) {
             int version;
             time_t start_time;
             const char* name;
             get_broad_data(buf2, &name, &version, &start_time);
+#if _WIN32
+            if (_stricmp(netname.c_str(), name) == 0) {
+#else
             if (strcasecmp(netname.c_str(), name) == 0) {
+#endif
                 if( version >= 128 || version < 1 ) {
                     log_warning() << "Ignoring bogus version " << version << " from scheduler found at " << inet_ntoa(remote_addr.sin_addr)
                         << ":" << ntohs(remote_addr.sin_port) << endl;
@@ -1789,39 +1848,37 @@ MsgChannel *DiscoverSched::try_get_scheduler()
             if (multiple)
                 log_info() << "Selecting scheduler at " << schedname << ":" << sport << endl;
 
-            if (-1 == close(ask_fd)){
+            if (!ask_fd.Close()){
                 log_perror("close failed");
             }
-            ask_fd = -1;
             if( get_second_port_for_debug( sport ) > 0 ) {
-                if (-1 == close(ask_second_fd)){
+                if (!ask_second_fd.Close()){
                     log_perror("close failed");
                 }
-                ask_second_fd = -1;
             } else {
-                assert( ask_second_fd == -1 );
+                assert( !ask_second_fd.IsValid() );
             }
             attempt_scheduler_connect();
 
-            if (ask_fd >= 0) {
-                int status = connect(ask_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+            if (ask_fd.IsValid()) {
+                int status = ask_fd.Connect((struct sockaddr *) &remote_addr, sizeof(remote_addr));
 
                 if (status == 0 || (status < 0 && (errno == EISCONN || errno == EINPROGRESS))) {
-                    int fd = ask_fd;
-                    ask_fd = -1;
+                    SocketWrapper fd = ask_fd;
+                    ask_fd.Invalidate();
                     return Service::createChannel(fd,
                                                   (struct sockaddr *) &remote_addr, sizeof(remote_addr));
                 }
             }
         }
     }
-    else if (ask_fd >= 0) {
-        assert( ask_second_fd == -1 );
-        int status = connect(ask_fd, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
+    else if (ask_fd.IsValid()) {
+        assert( !ask_second_fd.IsValid() );
+        int status = ask_fd.Connect((struct sockaddr *) &remote_addr, sizeof(remote_addr));
 
         if (status == 0 || (status < 0 && errno == EISCONN)) {
-            int fd = ask_fd;
-            ask_fd = -1;
+            SocketWrapper fd = ask_fd;
+            ask_fd.Invalidate();
             return Service::createChannel(fd,
                                           (struct sockaddr *) &remote_addr, sizeof(remote_addr));
         }
@@ -1830,17 +1887,21 @@ MsgChannel *DiscoverSched::try_get_scheduler()
     return 0;
 }
 
-bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
+bool DiscoverSched::get_broad_answer(SocketWrapper ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
                  socklen_t *remote_len)
 {
     char buf = PROTOCOL_VERSION;
     pollfd pfd;
-    assert(ask_fd > 0);
-    pfd.fd = ask_fd;
+    assert(ask_fd.IsValid());
+    pfd.fd = ask_fd.socket();
     pfd.events = POLLIN;
     errno = 0;
 
+#if _WIN32
+    if (WSAPoll(&pfd, 1, timeout) <= 0 || (pfd.revents & POLLIN) == 0) {
+#else
     if (poll(&pfd, 1, timeout) <= 0 || (pfd.revents & POLLIN) == 0) {
+#endif
         /* Normally this is a timeout, i.e. no scheduler there.  */
         if (errno && errno != EINTR) {
             log_perror("waiting for scheduler");
@@ -1851,7 +1912,7 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
 
     *remote_len = sizeof(struct sockaddr_in);
 
-    int len = recvfrom(ask_fd, buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr, remote_len);
+    int len = ask_fd.RecvFrom(buf2, BROAD_BUFLEN, 0, (struct sockaddr *) remote_addr, remote_len);
     if (len != BROAD_BUFLEN && len != BROAD_BUFLEN_OLD_1 && len != BROAD_BUFLEN_OLD_2) {
         log_perror("get_broad_answer recvfrom()");
         return false;
@@ -1872,7 +1933,7 @@ bool DiscoverSched::get_broad_answer(int ask_fd, int timeout, char *buf2, struct
 list<string> DiscoverSched::getNetnames(int timeout, int port)
 {
     list<string> l;
-    int ask_fd;
+    SocketWrapper ask_fd;
     struct sockaddr_in remote_addr;
     socklen_t remote_len;
     time_t time0 = time(0);
@@ -1898,7 +1959,7 @@ list<string> DiscoverSched::getNetnames(int timeout, int port)
         }
     } while (time(0) - time0 < (timeout / 1000));
 
-    if ((-1 == close(ask_fd)) && (errno != EBADF)){
+    if (!ask_fd.Close()){
         log_perror("close failed");
     }
     return l;
@@ -2392,7 +2453,7 @@ LoginMsg::LoginMsg(unsigned int myport, const std::string &_nodename, const std:
     chroot_possible = capng_have_capability(CAPNG_EFFECTIVE, CAP_SYS_CHROOT);
 #else
     // check if we're root
-    chroot_possible = (geteuid() == 0);
+    chroot_possible = IsElevated();
 #endif
 }
 

@@ -21,7 +21,9 @@
 #ifndef ICECREAM_PIPES_H
 #define ICECREAM_PIPES_H
 
+#include "socketwrapper.h"
+
 // This is like pipe(), but it will try to create a larger buffer.
-extern int create_large_pipe( int pipefd[ 2 ] );
+extern int create_large_pipe( SocketWrapper pipefd[ 2 ] );
 
 #endif

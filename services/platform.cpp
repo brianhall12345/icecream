@@ -20,9 +20,11 @@
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#if !_WIN32
 extern "C" {
 #include <sys/utsname.h>
 }
+#endif
 
 #include "logging.h"
 #include "platform.h"
@@ -32,6 +34,7 @@ std::string determine_platform_once()
     using namespace std;
     string platform;
 
+#if !_WIN32
     struct utsname uname_buf;
 
     if (uname(&uname_buf)) {
@@ -68,6 +71,9 @@ std::string determine_platform_once()
 
         platform.erase(pos, 1);
     }
+#else // _WIN32
+    platform = string("Windows");
+#endif
 
     return platform;
 }

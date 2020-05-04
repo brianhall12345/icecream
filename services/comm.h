@@ -29,11 +29,18 @@
 #  include <stdint.h>
 #endif
 #include <sys/types.h>
+#ifdef _WIN32
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
+#include <time.h>
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#endif
 
 #include "job.h"
+#include "socketwrapper.h"
 
 // if you increase the PROTOCOL_VERSION, add a macro below and use that
 #define PROTOCOL_VERSION 42
@@ -229,7 +236,7 @@ public:
     MsgChannel &operator<<(const std::list<std::string> &);
 
     // our filedesc
-    int fd;
+    SocketWrapper fd;
 
     // the minimum protocol version between me and him
     int protocol;
@@ -240,7 +247,7 @@ public:
     time_t last_talk;
 
 protected:
-    MsgChannel(int _fd, struct sockaddr *, socklen_t, bool text = false);
+    MsgChannel(SocketWrapper _fd, struct sockaddr *, socklen_t, bool text = false);
 
     bool wait_for_protocol();
     // returns false if there was an error sending something
@@ -267,7 +274,7 @@ protected:
         NEED_LEN,
         FILL_BUF,
         HAS_MSG,
-        ERROR
+        CH_ERROR // Keyword ERROR is a #define in Win32 environments
     } instate;
 
     uint32_t inmsglen;
@@ -289,7 +296,7 @@ class Service
 public:
     static MsgChannel *createChannel(const std::string &host, unsigned short p, int timeout);
     static MsgChannel *createChannel(const std::string &domain_socket);
-    static MsgChannel *createChannel(int remote_fd, struct sockaddr *, socklen_t);
+    static MsgChannel *createChannel(SocketWrapper remote_fd, struct sockaddr *, socklen_t);
 };
 
 class Broadcasts
@@ -323,18 +330,18 @@ public:
 
     bool timed_out();
 
-    int listen_fd() const
+    SocketWrapper listen_fd() const
     {
-        return schedname.empty() ? ask_fd : -1;
+        return schedname.empty() ? ask_fd : SocketWrapper::InvalidSocket();
     }
 
-    int connect_fd() const
+    SocketWrapper connect_fd() const
     {
-        return schedname.empty() ? -1 : ask_fd;
+        return schedname.empty() ? SocketWrapper::InvalidSocket() : ask_fd;
     }
 
     // compat for icecream monitor
-    int get_fd() const
+    SocketWrapper get_fd() const
     {
         return listen_fd();
     }
@@ -374,8 +381,8 @@ private:
     std::string netname;
     std::string schedname;
     int timeout;
-    int ask_fd;
-    int ask_second_fd; // for debugging
+    SocketWrapper ask_fd;
+    SocketWrapper ask_second_fd; // for debugging
     time_t time0;
     unsigned int sport;
     int best_version;
@@ -386,7 +393,7 @@ private:
 
     void attempt_scheduler_connect();
     void sendSchedulerDiscovery( int version );
-    static bool get_broad_answer(int ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
+    static bool get_broad_answer(SocketWrapper ask_fd, int timeout, char *buf2, struct sockaddr_in *remote_addr,
                  socklen_t *remote_len);
     static void get_broad_data(const char* buf, const char** name, int* version, time_t* start_time);
 };
@@ -611,7 +618,11 @@ public:
     JobBeginMsg(unsigned int j, unsigned int _client_count)
         : Msg(M_JOB_BEGIN)
         , job_id(j)
+#ifdef _WIN32
+        , stime(_time32(0))
+#else
         , stime(time(0))
+#endif
         , client_count(_client_count) {}
 
     virtual void fill_from_channel(MsgChannel *c);
@@ -683,7 +694,7 @@ public:
     JobLocalBeginMsg(int job_id = 0, const std::string &file = "")
         : Msg(M_JOB_LOCAL_BEGIN)
         , outfile(file)
-        , stime(time(0))
+        , stime(_time32(0))
         , id(job_id) {}
 
     virtual void fill_from_channel(MsgChannel *c);

@@ -30,27 +30,40 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#if _WIN32
+#else
 #include <netdb.h>
 #include <getopt.h>
+#endif
 
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if _WIN32
+#else
 #include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/param.h>
+#endif
+#ifdef _WIN32
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#else
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <sys/resource.h>
-#include <pwd.h>
-
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/resource.h>
+#include <pwd.h>
 #include <sys/utsname.h>
+#endif
+
 
 #ifdef HAVE_ARPA_NAMESER_H
 #  include <arpa/nameser.h>
@@ -60,12 +73,14 @@
 #include <sys/vfs.h>
 #endif
 
+#if !_WIN32
 #include <arpa/inet.h>
+#include <netdb.h>
+#endif
 
 #ifdef HAVE_RESOLV_H
 #  include <resolv.h>
 #endif
-#include <netdb.h>
 
 #ifndef RUSAGE_SELF
 #  define RUSAGE_SELF (0)

@@ -60,3 +60,6 @@ unittests/testargs
 unittests/testargs.log
 unittests/testargs.trs
 
+#Windows build items
+/.vs
+/CMakeSettings.json

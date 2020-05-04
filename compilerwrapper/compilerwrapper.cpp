@@ -39,14 +39,22 @@ Which one depends on an extra argument added by icecream.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+
+#if _WIN32
+#include <process.h>
+#define strdup _strdup
+#define execv _execv
+#endif
 
 //#define DEBUG
 
 int main(int argc, char *argv[])
 {
     bool iscxx = false;
-    int argv0len = strlen(argv[0]);
+    int argv0len = (int)strlen(argv[0]);
 
     if (argv0len > 2 && argv[0][argv0len - 1] == '+' && argv[0][argv0len - 2] == '+') {
         iscxx = true;

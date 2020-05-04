@@ -33,8 +33,12 @@
 
 #include <sys/types.h>
 
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
 #include <sys/socket.h>
 #include <net/if.h>
+#endif
 
 #ifndef IFF_POINTOPOINT
 #   define IFF_POINTOPOINT 0x10
@@ -49,7 +53,11 @@
 
 #else
 
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
 #include <sys/socket.h>
+#endif
 
 /* The `getifaddrs' function generates a linked list of these structures.
    Each element of the list describes one network interface.  */

@@ -23,12 +23,19 @@
 
 #include "pipes.h"
 
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <fcntl.h>
+#ifdef _WIN32
+#include <WinSock2.h>
+#include <string>
+#else
 #include <sys/socket.h>
+#endif
 
 // Create pipe with a larger buffer, this saves context switches and latencies.
-int create_large_pipe( int pipefds[ 2 ] )
+int create_large_pipe( SocketWrapper pipefds[ 2 ] )
 {
     // On Linux, the situation seems to be as follows:
     // SO_SNDBUFFORCE should allow the largest size, but it requires
@@ -38,25 +45,27 @@ int create_large_pipe( int pipefds[ 2 ] )
     // The maximum for SO_SNDBUF seems to be just 256KiB, so that one goes
     // last.
 #ifdef F_SETPIPE_SZ
-    if( pipe( pipefds ) == 0 )
+    int pfds[2]{ pipefds[0].socket(), pipfds[1].socket() };
+    if( pipe(pfds) == 0 )
     {
-        fcntl( pipefds[ 1 ], F_SETPIPE_SZ, 1048576 );
+        fcntl(pfds[ 1 ], F_SETPIPE_SZ, 1048576 );
         // Do not bother checking if this succeeded.
         return 0;
     }
 #endif
     // We use a socket pair instead of a pipe to get a "slightly" bigger
     // output buffer. This saves context switches and latencies.
-    int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, pipefds);
-    if( ret < 0)
+    int ret = SocketWrapper::SocketPair(AF_UNIX, SOCK_STREAM, 0, pipefds);
+    if (ret < 0)
         return ret;
+
 
     int maxsize = 2 * 1024 * 2024;
 #ifdef SO_SNDBUFFORCE
-    if (setsockopt(pipefds[1], SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0)
+    if (pipefds[1].SetSockOpt(SOL_SOCKET, SO_SNDBUFFORCE, &maxsize, sizeof(maxsize)) < 0)
 #endif
     {
-        setsockopt(pipefds[1], SOL_SOCKET, SO_SNDBUF, &maxsize, sizeof(maxsize));
+        pipefds[1].SetSockOpt(SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char*>(&maxsize), sizeof(maxsize));
     }
     return 0;
 }

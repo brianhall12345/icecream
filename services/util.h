@@ -22,7 +22,11 @@
 #define ICECREAM_UTIL_H
 
 #include <string>
+#if _WIN32
+#include <WinSock2.h>
+#else
 #include <sys/poll.h>
+#endif
 #include <vector>
 
 extern std::string find_basename(const std::string &sfile);
@@ -35,16 +39,51 @@ extern bool is_cpp_compiler(const std::string& compiler);
 extern std::string get_c_compiler(const std::string& compiler);
 extern std::string get_cpp_compiler(const std::string& compiler);
 
+#if !WIN32
+#define ATTR_UNUSED __attribute__((unused)) /* do nothing */
+#else
+#define ATTR_UNUSED
+
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#define strdup _strdup
+
+int gettimeofday(struct timeval* tp, struct timezone* tzp);
+#endif
+
 template<typename T>
-inline T ignore_result(T x __attribute__((unused)))
+inline T ignore_result(T x ATTR_UNUSED)
 {
     return x;
 }
+
+template <typename T, size_t n>
+struct read_ptr_from_charstrImpl;
+
+template <typename T>
+struct read_ptr_from_charstrImpl<T, 4> {
+    T operator()(const char* str) const { return (T)(atoi(str)); }
+};
+
+template <typename T>
+struct read_ptr_from_charstrImpl<T, 8> {
+    T operator()(const char* str) const { return (T)(atol(str)); }
+};
+
+template <typename T>
+struct read_ptr_from_charstrImpl<T, 16> {
+    T operator()(const char* str) const { return (T)(atoll(str)); }
+};
+
+template <typename T>
+T read_ptr_from_charstr(const char* str) { return read_ptr_from_charstrImpl<T, sizeof(T)>()(str); }
 
 // Returns true if _any_ of the given flags are set.
 // If check_errors is set, then errors such as POLLHUP are also considered as matching.
 bool pollfd_is_set(const std::vector<pollfd>& pollfds, int fd, int flags, bool check_errors = true);
 
 std::string supported_features_to_string(unsigned int features);
+
+bool IsElevated();
 
 #endif

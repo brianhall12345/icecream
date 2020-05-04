@@ -28,7 +28,11 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
 #include <sys/socket.h>
+#endif
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <poll.h>

@@ -94,6 +94,13 @@ else()
     set(CXXFLAGS "${CXXFLAGS} -DNDEBUG")
 endif()
 
+if (WIN32)
+# add additional include paths for win32
+# includes dirent.h port
+include_directories("win32/include")
+add_definitions(-D_CRT_SECURE_NO_WARNINGS -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS)
+endif()
+
 # Detect inline keyword
 if (MSVC)
     set (inline __inline)
@@ -152,19 +159,26 @@ CHECK_INCLUDE_FILES("netinet/tcp.h" HAVE_NETINET_TCP_H)
 CHECK_INCLUDE_FILES("netinet/tcp_var.h" HAVE_NETINET_TCP_VAR_H)
 CHECK_INCLUDE_FILES("sys/user.h" HAVE_SYS_USER_H)
 CHECK_INCLUDE_FILES("dlfcn.h" HAVE_DLFCN_H)
+
+set(PREV_INCLUDE ${CMAKE_REQUIRED_INCLUDES})
+set(CMAKE_REQUIRED_INCLUDES ${LibArchive_INCLUDE_DIR})
 CHECK_INCLUDE_FILES("archive_entry.h" HAVE_ARCHIVE_ENTRY_H)
 CHECK_INCLUDE_FILES("archive.h" HAVE_ARCHIVE_H_) #trailing underscore is on purpose, the code expects this.
-
+set(CMAKE_REQUIRED_INCLUDES ${PREV_INCLUDES})
 
 ######################################################################
 ### Checks for types
 include(CheckTypeSize)
-set(SYMBOL_INCLUDES "sys/types.h;sys/socket.h;netinet/in.h")
-if (HAVE_ARPA_NAMESER_H)
-    list(APPEND SYMBOL_INCLUDES "arpa/nameser.h")
+if (WIN32)
+set(SYMBOL_INCLUDES "winsock2.h;Ws2tcpip.h")
+else()
+    set(SYMBOL_INCLUDES "sys/types.h;sys/socket.h;netinet/in.h")
+    if (HAVE_ARPA_NAMESER_H)
+        list(APPEND SYMBOL_INCLUDES "arpa/nameser.h")
+    endif()
 endif()
 set(PREV_INCLUDES  ${CMAKE_EXTRA_INCLUDE_FILES})
-set(CMAKE_EXTRA_INCLUDE_FILES "sys/types.h;sys/socket.h;netinet/in.h")
+set(CMAKE_EXTRA_INCLUDE_FILES ${SYMBOL_INCLUDES})
 CHECK_TYPE_SIZE(sa_family_t SA_FAMILY_T)
 if (HAVE_SA_FAMILY_T)
     set(HAVE_SA_FAMILY_T 1) # preserve format consistency
@@ -197,8 +211,14 @@ set(CMAKE_EXTRA_INCLUDE_FILES ${PREV_INCLUDES})
 # only looks in /etc/hosts), so we only look for -lsocket if we need
 # it.
 include(CheckSymbolExists)
+if(WIN32)
+set(PREV_REQ_LIBS ${CMAKE_REQUIRED_LIBRARIES})
+set(CMAKE_REQUIRED_LIBRARIES "ws2_32")
+CHECK_SYMBOL_EXISTS("connect" "winsock2.h" HAVE_CONNECT)
+set(CMAKE_REQUIRED_LIBRARIES ${PREV_REQ_LIBS})
+else()
 CHECK_SYMBOL_EXISTS("connect" "sys/socket.h" HAVE_CONNECT)
-if (${HAVE_CONNECT} EQUAL 0)
+if (NOT HAVE_CONNECT)
 #    *-lnsl*
     CHECK_LIBRARY_EXISTS("nsl_s" "printf" "" HAVE_NSL_S)
 #    *-lnsl*
@@ -211,6 +231,7 @@ if (${HAVE_CONNECT} EQUAL 0)
         set(HAVE_CONNECT "1")
     endif()
 endif()
+endif()
 
 CHECK_SYMBOL_EXISTS("flock" "sys/file.h" HAVE_FLOCK)
 CHECK_SYMBOL_EXISTS("lockf" "unistd.h" HAVE_LOCKF)
@@ -218,8 +239,10 @@ CHECK_SYMBOL_EXISTS("strsignal" "string.h" HAVE_STRSIGNAL)
 CHECK_SYMBOL_EXISTS("getloadavg" "stdlib.h" HAVE_GETLOADAVG)
 
 include(CheckCSourceCompiles)
+set(PREV_INCLUDE ${CMAKE_REQUIRED_INCLUDES})
+set(CMAKE_REQUIRED_INCLUDES ${LibArchive_INCLUDE_DIR})
 set(PREV_REQ_LIBS ${CMAKE_REQUIRED_LIBRARIES})
-set(CMAKE_REQUIRED_LIBRARIES "archive")
+set(CMAKE_REQUIRED_LIBRARIES ${LibArchive_LIBRARY})
 CHECK_C_SOURCE_COMPILES("
     #include <archive.h>
 
@@ -241,6 +264,7 @@ CHECK_C_SOURCE_COMPILES("
   HAVE_LIBARCHIVE_ZSTD
   )
 set(CMAKE_REQUIRED_LIBRARIES ${PREV_REQ_LIBS})
+set(CMAKE_REQUIRED_INCLUDES ${PREV_INCLUDES})
  
 # In DragonFlyBSD daemon needs to be linked against libkinfo.
 if( ${CMAKE_SYSTEM} MATCHES "dragonfly")

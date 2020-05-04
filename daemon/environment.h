@@ -26,7 +26,9 @@
 #include <comm.h>
 #include <list>
 #include <string>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 class MsgChannel;
 extern bool cleanup_cache(const std::string &basedir, uid_t user_uid, gid_t user_gid);

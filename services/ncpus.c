@@ -29,7 +29,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <sys/stat.h>
 
 #include "ncpus.h"
@@ -100,6 +102,17 @@ int dcc_ncpus(int *ncpus)
 #endif
     *ncpus = 1;
     return EXIT_DISTCC_FAILED;
+}
+
+#elif _WIN32
+#include <windows.h>
+int dcc_ncpus(int* ncpus)
+{
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    int numCPU = sysinfo.dwNumberOfProcessors;
+    *ncpus = numCPU;
+    return 0;
 }
 
 #else /* every other system */

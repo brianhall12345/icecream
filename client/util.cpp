@@ -24,7 +24,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -33,10 +35,16 @@
 #include <limits.h>
 
 #include <sys/types.h>
+#if _WIN32
+#else
 #include <pwd.h>
+#endif
 
 #include <sys/stat.h>
+#if _WIN32
+#else
 #include <sys/file.h>
+#endif
 
 #include <vector>
 
@@ -62,6 +70,10 @@ extern bool explicit_no_show_caret;
  **/
 int set_cloexec_flag(int desc, int value)
 {
+#if _WIN32
+#pragma message("TODO: Figure out an alternative for FD_CLOEXEC on Win32. Something on the internet about O_NOINHERIT, but unclear if that can be set on sockets.")
+    return 0;
+#else
     int oldflags = fcntl(desc, F_GETFD, 0);
 
     /* If reading the flags failed, return error indication now. */
@@ -78,6 +90,7 @@ int set_cloexec_flag(int desc, int value)
 
     /* Store modified flag word in the descriptor. */
     return fcntl(desc, F_SETFD, oldflags);
+#endif
 }
 
 /**
@@ -90,11 +103,15 @@ int set_cloexec_flag(int desc, int value)
  **/
 int dcc_ignore_sigpipe(int val)
 {
+#if _WIN32
+#pragma message("TODO: Determine if we need to handle SIGPIPE for win32?")
+#else
     if (signal(SIGPIPE, val ? SIG_IGN : SIG_DFL) == SIG_ERR) {
         log_warning() << "signal(SIGPIPE, " << (val ? "ignore" : "default") << ") failed: "
                       << strerror(errno) << endl;
         return EXIT_DISTCC_FAILED;
     }
+#endif
 
     return 0;
 }

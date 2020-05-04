@@ -25,13 +25,18 @@
 #include <logging.h>
 #include <errno.h>
 #include <dirent.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <fcntl.h>
+#if _WIN32
+#else
 #include <grp.h>
+#include <sys/wait.h>
+#endif
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <signal.h>
 
 #include "comm.h"

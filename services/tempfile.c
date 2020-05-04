@@ -33,12 +33,24 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#if _WIN32
+#include <Windows.h>
+#include <shlwapi.h>
+#include <io.h>
+#include <stdio.h>
+#include <process.h>
+#include <Rpc.h>
+#define getpid _getpid
+#else
 #include <sys/time.h>
+#endif
 
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -77,10 +89,17 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
     random_bits = (unsigned long) getpid() << 16;
 
     {
+#if _WIN32
+        FILETIME filetime;
+        GetSystemTimeAsFileTime(&filetime);
+        random_bits ^= filetime.dwLowDateTime << 16;
+        random_bits ^= filetime.dwHighDateTime;
+#else
         struct timeval tv;
         gettimeofday(&tv, NULL);
         random_bits ^= tv.tv_usec << 16;
         random_bits ^= tv.tv_sec;
+#endif
     }
 
 #if 0
@@ -102,8 +121,11 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
          *
          * The permissions are tight because nobody but this process
          * and our children should do anything with it. */
+#if _WIN32
+        int fd = _open(tmpname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+#else
         int fd = open(tmpname, O_WRONLY | O_CREAT | O_EXCL, 0600);
-
+#endif
         if (fd == -1) {
             /* Don't try getting a file too often.  Safety net against
                endless loops. Probably just paranoia.  */
@@ -130,7 +152,11 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
             return EXIT_IO_ERROR;
         }
 
+#if _WIN32
+        if (_close(fd) == -1) {  /* huh? */
+#else
         if (close(fd) == -1) {  /* huh? */
+#endif
             free(tmpname);
             return EXIT_IO_ERROR;
         }
@@ -144,6 +170,45 @@ int dcc_make_tmpnam(const char *prefix, const char *suffix, char **name_ret, int
 }
 
 int dcc_make_tmpdir(char **name_ret) {
+#if _WIN32
+    char tmppath[MAX_PATH + 1];
+    char completetmppath[MAX_PATH + 1];
+    int pathlen = GetTempPath(MAX_PATH, tmppath);
+    if (pathlen > MAX_PATH || (pathlen == 0))
+    {
+        return EXIT_IO_ERROR;
+    }
+
+    UUID id;
+    UuidCreate(&id);
+    RPC_CSTR* guidstring = NULL;
+    UuidToString(&id, guidstring);
+    char prefix[] = "icecc-";
+    char* foldername = malloc(strlen(*guidstring) + strlen(prefix) + 1);
+    if (!foldername) {
+        return EXIT_OUT_OF_MEMORY;
+    }
+    strcpy(foldername, prefix);
+    strcat(foldername, *guidstring);
+    RpcStringFree(guidstring);
+
+    if (PathCombine(completetmppath, tmppath, foldername) == NULL)
+    {
+        return EXIT_IO_ERROR;
+    }
+    char* tmpname = malloc(strlen(completetmppath));
+    strncpy(tmpname, completetmppath, strlen(completetmppath));
+    free(foldername);
+    if (!tmpname) {
+        return EXIT_OUT_OF_MEMORY;
+    }
+
+    if (!CreateDirectory(tmpname, NULL))
+    {
+        return EXIT_IO_ERROR;
+    }
+
+#else
     unsigned long tries = 0;
     char template[] = "icecc-XXXXXX";
     size_t tmpname_length = strlen(_PATH_TMP) + 1 + strlen(template) + 1;
@@ -179,6 +244,7 @@ int dcc_make_tmpdir(char **name_ret) {
 
         break;
     } while (1);
+#endif
 
     *name_ret = tmpname;
 

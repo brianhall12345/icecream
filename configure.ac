@@ -155,7 +155,11 @@ dnl Checks for types
 AC_CHECK_TYPES([sa_family_t, socklen_t, in_port_t, in_addr_t], , ,
 	       [
 #include <sys/types.h>
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
 #include <sys/socket.h>
+#endif
 #include <netinet/in.h>
 #if HAVE_ARPA_NAMESER_H
 # include <arpa/nameser.h>

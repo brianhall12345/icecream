@@ -26,7 +26,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -35,12 +37,20 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#if _WIN32
+#else
 #include <sys/wait.h>
+#endif
 #ifdef HAVE_SYS_SIGNAL_H
 #  include <sys/signal.h>
 #endif /* HAVE_SYS_SIGNAL_H */
+#if _WIN32
+#else
 #include <sys/param.h>
+#endif
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #include <job.h>
 #include <comm.h>
@@ -54,7 +64,13 @@
 #include "util.h"
 #include "file_util.h"
 
+#if _WIN32
+#include <WinSock2.h>
+#endif
+
+#if !_WIN32
 #include <sys/time.h>
+#endif
 
 #ifdef __FreeBSD__
 #include <sys/socket.h>

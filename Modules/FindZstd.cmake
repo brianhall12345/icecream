@@ -32,11 +32,43 @@
 # ZSTD_INCLUDE_DIR
 # ZSTD_LIBRARY
 #
+# If Zstd_ROOT_DIR was defined in the environment, use it.
+IF(NOT Zstd_ROOT_DIR AND NOT $ENV{Zstd_ROOT_DIR} STREQUAL "")
+  SET(Zstd_ROOT_DIR $ENV{Zstd_ROOT_DIR})
+ENDIF()
 
-find_path(Zstd_INCLUDE_DIR NAMES zstd.h)
+SET(_Zstd_SEARCH_DIRS
+  ${Zstd_ROOT_DIR}
+  /usr/local
+  /sw # Fink
+  /opt/local # DarwinPorts
+  /opt/csw # Blastwave
+)
 
-find_library(Zstd_LIBRARY_DEBUG NAMES zstdd zstd_staticd)
-find_library(Zstd_LIBRARY_RELEASE NAMES zstd zstd_static)
+find_path(Zstd_INCLUDE_DIR zstd.h
+  HINTS
+    ${_Zstd_SEARCH_DIRS}
+  PATH_SUFFIXES
+    include
+)
+
+find_library(Zstd_LIBRARY_DEBUG 
+  NAMES 
+    zstdd zstd_staticd
+  HINTS
+    ${_Zstd_SEARCH_DIRS}
+  PATH_SUFFIXES
+    lib64 lib static
+)
+
+find_library(Zstd_LIBRARY_RELEASE 
+  NAMES 
+    zstd zstd_static libzstd_static
+  HINTS
+    ${_Zstd_SEARCH_DIRS}
+  PATH_SUFFIXES
+    lib64 lib static
+)
 
 include(SelectLibraryConfigurations)
 SELECT_LIBRARY_CONFIGURATIONS(Zstd)
@@ -55,4 +87,4 @@ if (Zstd_FOUND)
     endif ()
 endif()
 
-mark_as_advanced(Zstd_INCLUDE_DIR Zstd_LIBRARY_DEBUG Zstd_LIBRARY_RELEASE)
+mark_as_advanced(Zstd_INCLUDE_DIR Zstd_LIBRARY_DEBUG Zstd_LIBRARY_RELEASE Zstd_SEARCH_DIRS)

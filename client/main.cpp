@@ -43,19 +43,24 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
 #include <cassert>
 #include <limits.h>
+#if _WIN32
+#else
 #include <sys/time.h>
+#include <sys/wait.h>
+#endif
 #include <comm.h>
 #include <vector>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 
 #include "client.h"
 #include "platform.h"
